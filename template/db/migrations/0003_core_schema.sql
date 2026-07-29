@@ -1,9 +1,18 @@
 -- 0003_core_schema — locations, batches, students, payments, audit_log.
 -- Per docs/data-model-security.md. Every table has RLS enabled; every policy
 -- checks only `to authenticated` (flat permissions, no role tiering) — the
--- `anon` role gets no policy anywhere, so it has zero access despite Supabase's
--- default schema-level grants. audit_log is append-only: insert + select
--- policies only, no update/delete policy for anyone.
+-- `anon` role gets no policy anywhere, so it has zero access. audit_log is
+-- append-only: insert + select policies only, no update/delete policy for
+-- anyone.
+--
+-- Table-level GRANTs are explicit (not assumed) — this local instance does
+-- NOT auto-grant SELECT/INSERT/UPDATE/DELETE to anon/authenticated/service_role
+-- on new tables (confirmed via information_schema.role_table_grants: only
+-- REFERENCES/TRIGGER/TRUNCATE showed up by default, even for service_role,
+-- which still needs a base table grant despite BYPASSRLS). RLS is the row-level
+-- gate; GRANT is the table-level gate underneath it — both are required.
+-- verify-denial.ts's very first seed insert (as service_role) failed with
+-- "permission denied for table locations" until these were added.
 
 -- migrate:up
 
@@ -107,6 +116,13 @@ create policy "authenticated read" on audit_log
   for select
   to authenticated
   using (true);
+
+-- Table-level grants (RLS above is the row-level gate; this is the table-level
+-- gate underneath it). `anon` gets nothing anywhere — no grant statement for it
+-- at all, matching "anon gets zero access" (docs/data-model-security.md).
+grant select, insert, update, delete on locations, batches, students, payments
+  to authenticated, service_role;
+grant select, insert on audit_log to authenticated, service_role;
 
 -- migrate:down
 drop table if exists audit_log;
