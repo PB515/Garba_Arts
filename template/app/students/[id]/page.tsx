@@ -45,6 +45,12 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const totalPaid = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
   const balance = student.fee_total !== null ? student.fee_total - totalPaid : null;
 
+  const locationNameById = new Map((locations ?? []).map((l) => [l.id, l.name]));
+  // Batch names repeat across locations, so qualify each option so it's
+  // unambiguous which location's batch is being picked.
+  const batchOptionLabel = (b: { name: string; location_id: string }) =>
+    `${locationNameById.get(b.location_id) ?? '?'} · ${b.name}`;
+
   return (
     <AppShell active="students" userEmail={user?.email}>
       <div className="mb-4">
@@ -116,7 +122,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                   <option value="">-</option>
                   {(batches ?? []).map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.name}
+                      {batchOptionLabel(b)}
                     </option>
                   ))}
                 </select>

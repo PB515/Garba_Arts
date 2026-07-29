@@ -50,6 +50,11 @@ export default async function StudentsPage({
 
   const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
   const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
+  // Batch names repeat across locations (e.g. "8-9 PM" at both Aliya and
+  // Sportsclub), so dropdown options must be qualified by location or a
+  // team member has no way to tell which one they're picking.
+  const batchOptionLabel = (b: { name: string; location_id: string }) =>
+    `${locationName.get(b.location_id) ?? '?'} · ${b.name}`;
 
   return (
     <AppShell active="students" userEmail={user?.email}>
@@ -87,7 +92,7 @@ export default async function StudentsPage({
               <option value="">Batch</option>
               {(batches ?? []).map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name}
+                  {batchOptionLabel(b)}
                 </option>
               ))}
             </select>
@@ -120,7 +125,7 @@ export default async function StudentsPage({
               <option value="">All batches</option>
               {(batches ?? []).map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name}
+                  {batchOptionLabel(b)}
                 </option>
               ))}
             </select>
