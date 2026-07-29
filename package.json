@@ -9,7 +9,7 @@
   },
   "scripts": {
     "setup": "npm install && npm --prefix template install && git config core.hooksPath tooling/hooks && npm run doctor",
-    "dev": "npm --prefix template run dev -- -p 3400",
+    "dev": "npm --prefix template run dev -- -p 3500",
     "typecheck": "tsc --noEmit",
     "doctor": "tsx tooling/doctor.ts",
     "migrate": "tsx tooling/migrate.ts",
