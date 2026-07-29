@@ -1,0 +1,27 @@
+{
+  "_comment": "Deploy-readiness manifest — validated by `tooling/deploy-check`. Edit per site. requiredEnv: vars that must exist (locally and in the host). rejectPlaceholders: shipped default strings that must be gone before launch. smokeTest: the manual live-URL checks (Playbook PART 5).",
+  "requiredEnv": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY"
+  ],
+  "rejectPlaceholders": {
+    "lib/site.ts": [
+      "Acme Co",
+      "Acme Private Limited",
+      "Replace this tagline per site.",
+      "https://example.com",
+      "hello@example.com",
+      "910000000000",
+      "00000 00000"
+    ]
+  },
+  "smokeTest": [
+    "On the DEPLOYED url (not localhost): submit a form → it saves + the email arrives",
+    "WhatsApp/tel links open the REAL number (wa.me is digits-only, no + or spaces)",
+    "Analytics dashboard receives events (after the processing delay)",
+    "Walk it on a real phone — images render, nothing overflows at 360px",
+    "Rendered <title> is correct per page type — site name appears once, not doubled",
+    "Privacy policy matches the analytics actually deployed"
+  ]
+}

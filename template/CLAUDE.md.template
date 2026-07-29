@@ -1,0 +1,49 @@
+# CLAUDE.md — {{SITE_NAME}}
+
+*The context anchor for this site. Filled per build, kept in the repo root, read first every session. This shape is the single highest-value artifact across every retro — it survives mid-build context compactions with near-zero loss. Keep it current: update Status and the Build Log at the end of every phase.*
+
+---
+
+## What this is
+
+{{One paragraph: the site, its killer feature / positioning, who it's for. From the Business Brief + 02-PRD.}}
+
+## Current status
+
+- **Phase:** {{N}} of {{M}} — {{phase name}}
+- **Last completed:** {{what just shipped}}
+- **Next up:** {{the next phase / slice}}
+- **Last commit:** {{hash + message}}
+- **Resume note:** {{a human note to your next session — where you were, any gotcha}}
+
+## Stack
+
+{{One line: framework · styling · DB/auth · host. e.g. Next.js App Router · Tailwind v4 + tokens · Supabase · Vercel}}
+
+## Conventions
+
+Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgraded deps without asking · git per phase, branch per phase · changing a frozen doc is a separate logged step. Full list: the IDP's `docs/conventions.md`.
+
+## Decisions made (do not revisit)
+
+*The frozen calls. Each links to the doc that settled it. Re-opening one is a deliberate, logged action.*
+
+1. {{decision}} → {{doc}}
+2. ...
+
+## Where things live
+
+- Tokens → `app/globals.css`
+- Brand/contact constants → `lib/site.ts`
+- Schema + migrations → `db/migrations/`
+- Project docs → `docs/01…11`
+- Each frozen doc → {{paths}}
+
+---
+
+## Build log
+
+*Newest last. One entry per phase: what was built, what was verified, any deviation. This is what ends debugging-archaeology. Before closing out a phase, also run `/cost` and log a row in the IDP's `docs/metrics/token-usage.md` — see `docs/conventions.md`.*
+
+### Phase 0 — Setup
+- {{...}}

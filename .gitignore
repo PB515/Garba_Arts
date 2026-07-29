@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Secrets — never commit (Safety Rail 2)
+.env
+.env.local
+.env*.local
+
+# Next.js / build output
+.next/
+out/
+build/
+dist/
+
+# Supabase local stack
+.branches/
+.temp/
+supabase/.temp/
+
+# Logs & OS cruft
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Claude Code local settings + transient files (machine-specific)
+.claude/settings.local.json
+.claude/*.lock

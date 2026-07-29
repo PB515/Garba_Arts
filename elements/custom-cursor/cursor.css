@@ -1,0 +1,22 @@
+/* custom-cursor — accent dot + ring that grows on interactive hover.
+   Override colours via --cursor-dot / --cursor-ring / --cursor-accent (else the fallbacks). */
+.cc-dot, .cc-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 9999px;
+  opacity: 0;
+}
+.cc-dot { width: 7px; height: 7px; background: var(--cursor-dot, #e5452e); }
+.cc-ring {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--cursor-ring, #c9a227);
+  transition: width 0.2s, height 0.2s, background-color 0.2s, border-color 0.2s;
+}
+.cc-ring.cursor-hover {
+  width: 56px; height: 56px;
+  background: color-mix(in srgb, var(--cursor-accent, #c0356b) 16%, transparent);
+  border-color: var(--cursor-accent, #c0356b);
+}

@@ -1,0 +1,37 @@
+{
+  "name": "website-idp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Base starter repo for producing deployable websites via vibe coding (the IDP). Built in slices per the build charter.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "setup": "npm install && npm --prefix template install && git config core.hooksPath tooling/hooks && npm run doctor",
+    "typecheck": "tsc --noEmit",
+    "doctor": "tsx tooling/doctor.ts",
+    "migrate": "tsx tooling/migrate.ts",
+    "migrate:up": "tsx tooling/migrate.ts up",
+    "migrate:down": "tsx tooling/migrate.ts down",
+    "migrate:status": "tsx tooling/migrate.ts status",
+    "db:check": "tsx tooling/migrate.ts check",
+    "db:types": "tsx tooling/migrate.ts types",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "env:validate": "tsx tooling/env-validate.ts",
+    "deploy:check": "tsx tooling/deploy-check.ts",
+    "verify": "tsx tooling/verify.ts",
+    "verify:selftest": "tsx tooling/verify.ts selftest",
+    "lint:ai-tell": "tsx tooling/ai-tell-lint.ts"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "supabase": "^2.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

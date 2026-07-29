@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   DESIGN TOKENS  —  ⚠ REQUIRED TO CUSTOMISE PER SITE. THIS IS NOT A DEFAULT. ⚠
+
+   Keeping these placeholder values is exactly how you get the "AI-made look".
+   The single anti-sameness rule: the IDP standardises the PLUMBING, never the
+   SKIN. Replace every token below from doc 04 (Design System & Vibe) BEFORE you
+   build any UI — set the tokens first, then design on top of them.
+
+   The placeholder palette is deliberately loud (magenta) so an un-customised
+   site is obvious on sight — if you still see hot pink, you skipped this step.
+
+   See: docs/modules/anti-ai-look.md
+   ============================================================================ */
+
+:root {
+  /* — Brand colours — REPLACE all of these — */
+  --background: #fff5fb;          /* PLACEHOLDER */
+  --foreground: #1a0014;          /* PLACEHOLDER */
+  --muted: #8a6c80;               /* PLACEHOLDER — secondary text */
+  --border: #f0c4e0;              /* PLACEHOLDER */
+
+  /* The CTA/accent needs its OWN shade that passes WCAG AA, plus the text
+     colour that sits ON it. (v5 #6 — a single accent failed AA on Purven.)
+     Verify --accent-foreground vs --accent is ≥ 4.5:1 before launch. */
+  --accent: #d6008c;              /* PLACEHOLDER — brand/CTA colour */
+  --accent-foreground: #ffffff;   /* PLACEHOLDER — text ON accent; MUST pass AA */
+
+  /* — Typography — REPLACE with DISTINCTIVE fonts.
+     NEVER Inter / Roboto / Arial / system defaults / Space Grotesk. Pair a
+     characterful display face with a refined body face (wired via next/font). */
+  --font-display: Georgia, "Times New Roman", serif;   /* PLACEHOLDER */
+  --font-body: system-ui, sans-serif;                  /* PLACEHOLDER */
+
+  /* — Spacing scale (v5 #15 — named rhythm, not magic numbers) — */
+  --space-tight: 0.5rem;
+  --space-section: 4rem;
+  --space-major: 8rem;
+
+  --radius: 0.5rem;
+}
+
+/* Map tokens to Tailwind v4 theme so utilities (bg-background, text-accent,
+   font-display, rounded-[var(--radius)] …) read from the tokens above. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}

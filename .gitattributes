@@ -1,0 +1,17 @@
+# Normalise line endings so the repo is identical on Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Shell hook MUST be LF or it won't run on macOS/Linux.
+tooling/hooks/* text eol=lf
+
+# Binary assets — never normalise.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.mp4 binary

@@ -1,0 +1,4 @@
+#!/bin/sh
+# IDP pre-commit hook — flags AI-tell copy (em-dashes, generic phrases) in staged files.
+# With no args, ai-tell-lint lints the staged set itself. A hit blocks the commit.
+exec npx tsx tooling/ai-tell-lint.ts

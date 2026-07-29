@@ -1,0 +1,22 @@
+name: keepalive
+# Daily ping so a FREE Supabase project doesn't pause after 7 days idle.
+# Setup: add a repo secret SITE_URL = your deployed origin (e.g. https://acme.com).
+# The /api/health route makes a real DB query, which resets the inactivity timer.
+# Caveat: GitHub disables scheduled workflows after ~60 days with no repo commits —
+# if the site is truly idle, use cron-job.org against <SITE_URL>/api/health instead.
+# See docs/runbooks/free-tier-uptime.md.
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # daily ~06:17 UTC (off-the-hour: scheduled runs are less likely to be delayed)
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health
+        run: |
+          code=$(curl -fsS -o /dev/null -w '%{http_code}' "${{ secrets.SITE_URL }}/api/health" || true)
+          echo "health -> $code"
+          test "$code" = "200"
