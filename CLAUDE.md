@@ -10,11 +10,11 @@ An internal admin/CRM tool for **The Garba Arts**, a garba dance class with 2 lo
 
 ## Current status
 
-- **Phase:** 0 of N — Planning docs done, no application code yet
-- **Last completed:** `npm run setup` confirmed green (doctor: all ✓). Wrote `docs/app-prd.md` and `docs/data-model-security.md` (the focused-doc path, per user's confirmed judgment call over the full doc-gen-master set) — user resolved the roles/delete questions these docs needed (flat permissions for everyone including delete; two-tier soft-delete + explicit permanent-remove with an audit_log entry first).
-- **Next up:** Build in slices, security-first per the app golden path: auth → RLS → prove cross-user denial (gate) → students/leads CRUD → payments → dashboard → CSV export → CSV import (once the Excel file lands).
-- **Last commit:** `873472d` — Initial clone + discovery brief (PRD/data-model docs not yet committed as of this edit)
-- **Resume note:** Four open items block nothing about starting the build, but do block finishing certain features — don't invent values for them: (1) Excel import file, (2) real names for the 2 locations + 6 batches, (3) the 5–8 team members' actual names/emails for account creation, (4) final confirmation of the starter status-tag list in `data-model-security.md`. Full detail in `docs/app-prd.md`'s and `docs/data-model-security.md`'s "Open items" sections.
+- **Phase:** 1 of N — Schema + auth done, verified live; features not yet built
+- **Last completed:** Core schema migration (locations/batches/students/payments/audit_log, all RLS) applied and verified on a freshly-isolated local Supabase instance. Real auth wired end-to-end (login/session/logout) and tested live in the browser. Fixed a real infra bug along the way — this site's local Supabase `project_id` was still the IDP's own, causing a shared-database collision (see build log).
+- **Next up:** Task #4 — prove cross-user denial (the security gate; must pass before any CRUD feature is built), then students/leads CRUD → payments → dashboard → CSV export → CSV import (once the Excel file lands).
+- **Last commit:** `303ca54` — core schema migration + project_id fix (auth work not yet committed as of this edit)
+- **Resume note:** Four open items block nothing about continuing the build, but do block finishing certain features — don't invent values for them: (1) Excel import file, (2) real names for the 2 locations + 6 batches, (3) the 5–8 team members' actual names/emails for account creation, (4) final confirmation of the starter status-tag list in `data-model-security.md`. Full detail in `docs/app-prd.md`'s and `docs/data-model-security.md`'s "Open items" sections. Local dev: `npm run db:start` then `npm run dev` (port 3400, also registered in the workspace-root `.claude/launch.json` as `garba-arts-admin-dev`). Test account: `owner@thegarbaarts.local` / `TempPass123!` — a throwaway local-only credential, replace with real team accounts via `npm run create-account` once names/emails are provided.
 
 ## Stack
 
@@ -40,6 +40,9 @@ Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgra
 10. **Flat permissions — every core team member can view/add/edit/soft-delete/permanently-remove every record.** No owner/staff split, no `has_role()` tiering for v1. → `docs/app-prd.md`
 11. **Delete is two-tier:** default delete = soft-delete/archive (recoverable); a separate, explicit "permanently remove" action does a real `DELETE`, always preceded by an `audit_log` entry (append-only, RLS-enforced no update/delete). → `docs/data-model-security.md`
 12. **`anon` gets zero grants on any table** — stricter than the IDP's usual marketing/portal defaults, because this app has no public surface at all. → `docs/data-model-security.md`
+13. **This site's local Supabase `project_id` is `garba_arts_admin`**, changed from the archive's inherited `"IDP_Web"`. Do not revert — that caused a real shared-database collision with the IDP's own local dev stack (see Phase 1 build log). Every future IDP clone needs the same fix; flag it in a dedicated IDP session.
+14. **Local dev runs on port 3400**, registered as `garba-arts-admin-dev` in the workspace-root `.claude/launch.json` (shared across all site sessions — each site owns one port to avoid collisions).
+15. **`middleware.ts` → `proxy.ts`, mid-build.** Next.js 16 renamed the convention (file name + exported function `middleware` → `proxy`) while this app was being built; not a deviation, just built against a moving target — noted so a future session isn't confused finding `proxy.ts` instead of `middleware.ts`.
 
 ## Where things live
 
@@ -66,4 +69,14 @@ Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgra
 - User confirmed the recommendation: skip doc-gen-master's full set, go straight to App PRD + Data Model & Security given the narrow scope + real auth/data wrinkles.
 - Resolved two gaps the PRD needed that discovery hadn't covered: roles (flat/equal for everyone) and delete behavior (soft-delete by default, explicit hard-delete option, audit-logged).
 - Wrote `docs/app-prd.md` and `docs/data-model-security.md`, referencing the IDP's existing patterns (`audit-log.ts` for the permanent-delete trail; noted `has_role.sql` is not needed for v1's flat-permission model).
-- Next: begin the build, security-first — auth, then RLS, then prove cross-user denial before any feature.
+
+### Phase 1 — Schema + auth
+- `template/db/migrations/0003_core_schema.sql` — `locations`, `batches`, `students`, `payments`, `audit_log`, all RLS-enabled with flat `to authenticated` policies (no role tiering); `audit_log` is insert+select only, no update/delete policy for anyone.
+- **Found + fixed a real infra bug during first `db:start`:** `supabase/config.toml`'s `project_id` was still `"IDP_Web"` from the archive clone. Supabase CLI names local Docker containers/volumes after `project_id`, so this site's local database was the same shared container as the IDP master's (confirmed by orphaned migrations from an unrelated schema showing up in `migrate:status`). The migration tool's checksum-drift check refused to apply over the foreign history, so nothing was damaged. Changed `project_id` to `"garba_arts_admin"`, stopped the shared stack (non-destructive), started a fresh isolated one, re-verified `migrate:up`/`db:check` clean. Worth raising in a dedicated IDP session — every future clone will hit this until it's fixed at the source.
+- Auth: `proxy.ts` (Next.js 16 renamed `middleware.ts` → `proxy.ts` mid-build, discovered via a deprecation warning; migrated: file renamed, exported function renamed `middleware` → `proxy`) protects every route except `/login` by default — this app has no public surface at all. `app/login/page.tsx` + `app/login/actions.ts` (real Supabase auth, rate-limited sign-in attempts via the existing `lib/security.ts` rate limiter). `app/dashboard/page.tsx` is a stub (real build is Task #7) that proves the session (shows the signed-in email + sign-out).
+- `tooling/create-account.ts` — invite-only account creation via the service-role admin API (`npm run create-account -- <email> <password>`), since there's no public sign-up page per the App PRD.
+- Root `.env.local` + `template/.env.local` created with local dev Supabase keys (the well-known local demo JWTs, gitignored either way).
+- Root `.claude/launch.json` (shared across all site sessions in this workspace) gained a `garba-arts-admin-dev` entry on port 3400.
+- Fixed the scaffold's default title/homepage: `app/page.tsx` now redirects to `/dashboard`; `app/layout.tsx` reads title/description from `lib/site.ts` and sets `robots: noindex/nofollow` (no public surface); `lib/site.ts`'s `name` set to "The Garba Arts — Admin", `legalName` left as an explicit `TBD` (never fabricated).
+- **Verify — green, tested live in the browser:** unauthenticated `/` and `/dashboard` both redirect to `/login`; sign-in with a real test account redirects to `/dashboard` and shows the session email; sign-out redirects back to `/login`; `tsc --noEmit` clean in `template/`.
+- Next: prove cross-user denial (Task #4) before building any CRUD feature.

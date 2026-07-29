@@ -1,7 +1,8 @@
 /**
  * Supabase — MIDDLEWARE client (3 of the 4-client split).
  *
- * Use when: in `middleware.ts` to refresh the auth session on every request so
+ * Use when: in `proxy.ts` (Next.js 16's renamed middleware convention) to
+ * refresh the auth session on every request so
  * Server Components always see a valid user. Returns the response (with updated
  * cookies) and the current user. Do NOT run code between createServerClient and
  * getUser — it causes hard-to-debug random logouts.

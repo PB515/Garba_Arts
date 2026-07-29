@@ -8,12 +8,12 @@
  * This is the per-site 20%: replace every value below when you clone.
  */
 export const site = {
-  name: 'Acme Co',
-  legalName: 'Acme Private Limited',
-  tagline: 'Replace this tagline per site.',
-  description: 'One-sentence description used as the default <meta> description.',
+  name: 'The Garba Arts Admin',
+  legalName: 'TBD, not yet confirmed', // never fabricated; not used anywhere in this internal-only app anyway
+  tagline: 'Internal admissions & fees tracking',
+  description: 'Internal admin tool for The Garba Arts core team, not a public site.',
 
-  url: 'https://example.com', // production URL — canonical/sitemap/OG depend on it
+  url: 'https://example.com', // production URL, canonical/sitemap/OG depend on it
 
   contact: {
     email: 'hello@example.com',

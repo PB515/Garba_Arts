@@ -1,14 +1,15 @@
 {
-  "name": "website-idp",
+  "name": "garba-arts-admin",
   "version": "0.1.0",
   "private": true,
-  "description": "Base starter repo for producing deployable websites via vibe coding (the IDP). Built in slices per the build charter.",
+  "description": "Internal admin/CRM tool for The Garba Arts: admissions, demos, batches, and fee tracking for the core team.",
   "type": "module",
   "engines": {
     "node": ">=20.6"
   },
   "scripts": {
     "setup": "npm install && npm --prefix template install && git config core.hooksPath tooling/hooks && npm run doctor",
+    "dev": "npm --prefix template run dev -- -p 3400",
     "typecheck": "tsc --noEmit",
     "doctor": "tsx tooling/doctor.ts",
     "migrate": "tsx tooling/migrate.ts",
@@ -23,7 +24,9 @@
     "deploy:check": "tsx tooling/deploy-check.ts",
     "verify": "tsx tooling/verify.ts",
     "verify:selftest": "tsx tooling/verify.ts selftest",
-    "lint:ai-tell": "tsx tooling/ai-tell-lint.ts"
+    "verify:denial": "tsx tooling/verify-denial.ts",
+    "lint:ai-tell": "tsx tooling/ai-tell-lint.ts",
+    "create-account": "tsx tooling/create-account.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.10",
