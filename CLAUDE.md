@@ -10,11 +10,11 @@ An internal admin/CRM tool for **The Garba Arts**, a garba dance class with 2 lo
 
 ## Current status
 
-- **Phase:** 0 of N — Setup (freshly cloned from the IDP, discovery brief written, no application code yet)
-- **Last completed:** Discovery run live in chat; sibling repo created via `git archive` from the IDP; independent git history initialised (no remote).
-- **Next up:** `npm run setup`, confirm green, then decide doc-gen-master's full doc set vs. a focused App PRD + Data Model & Security doc (this build's data/auth model has real wrinkles — see Decisions below — so the focused-doc path is likely, pending user confirmation).
-- **Last commit:** none yet (working tree only)
-- **Resume note:** Discovery is fully resolved except three explicitly-open items tracked in `docs/discovery-brief.md`'s final section (Excel import file pending, batch/location real names pending, team member list for accounts pending). Do not invent placeholder values for these — ask.
+- **Phase:** 0 of N — Planning docs done, no application code yet
+- **Last completed:** `npm run setup` confirmed green (doctor: all ✓). Wrote `docs/app-prd.md` and `docs/data-model-security.md` (the focused-doc path, per user's confirmed judgment call over the full doc-gen-master set) — user resolved the roles/delete questions these docs needed (flat permissions for everyone including delete; two-tier soft-delete + explicit permanent-remove with an audit_log entry first).
+- **Next up:** Build in slices, security-first per the app golden path: auth → RLS → prove cross-user denial (gate) → students/leads CRUD → payments → dashboard → CSV export → CSV import (once the Excel file lands).
+- **Last commit:** `873472d` — Initial clone + discovery brief (PRD/data-model docs not yet committed as of this edit)
+- **Resume note:** Four open items block nothing about starting the build, but do block finishing certain features — don't invent values for them: (1) Excel import file, (2) real names for the 2 locations + 6 batches, (3) the 5–8 team members' actual names/emails for account creation, (4) final confirmation of the starter status-tag list in `data-model-security.md`. Full detail in `docs/app-prd.md`'s and `docs/data-model-security.md`'s "Open items" sections.
 
 ## Stack
 
@@ -36,6 +36,10 @@ Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgra
 6. **Each student belongs to exactly one location and one batch**; batches are fixed to a single location (2 locations × up-to-6 batches). → `docs/discovery-brief.md`
 7. **CSV export is a first-class feature**, not an afterthought — needed for detailed analysis outside the app. CSV import of the existing Excel sheet is also wanted, but the file hasn't been shared yet — not a launch blocker. → `docs/discovery-brief.md`
 8. **This is a new golden-path type for the IDP** (staff-only internal ops/CRM tool, zero external users) — no exact existing recipe. Closest analog is `portal.md`, adapted down. Worth feeding back to the master IDP's `BACKLOG.md` after this ships. → `docs/discovery-brief.md`
+9. **Went straight to a focused App PRD + Data Model & Security doc, skipping doc-gen-master's full 11-doc set.** Modest single-app scope + real auth/data wrinkles (per-user RLS, payment line items) was the trigger — user confirmed this judgment call. → `docs/app-prd.md`, `docs/data-model-security.md`
+10. **Flat permissions — every core team member can view/add/edit/soft-delete/permanently-remove every record.** No owner/staff split, no `has_role()` tiering for v1. → `docs/app-prd.md`
+11. **Delete is two-tier:** default delete = soft-delete/archive (recoverable); a separate, explicit "permanently remove" action does a real `DELETE`, always preceded by an `audit_log` entry (append-only, RLS-enforced no update/delete). → `docs/data-model-security.md`
+12. **`anon` gets zero grants on any table** — stricter than the IDP's usual marketing/portal defaults, because this app has no public surface at all. → `docs/data-model-security.md`
 
 ## Where things live
 
@@ -43,7 +47,8 @@ Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgra
 - Brand/contact constants → `template/lib/site.ts`
 - Schema + migrations → `template/db/migrations/`
 - Discovery brief (this build's spec source) → `docs/discovery-brief.md`
-- Project docs (once generated) → `docs/01…11`
+- App PRD (roles, flows, No-List) → `docs/app-prd.md`
+- Data Model & Security (schema + RLS, per table) → `docs/data-model-security.md`
 
 ---
 
@@ -57,4 +62,8 @@ Tokens only — no hardcoded hex · secrets in `.env.local` only · no new/upgra
 - Ran discovery live in chat using the IDP's `discovery` skill: captured the raw idea verbatim, asked the forced early questions one at a time, built the feature → capability → tier table, scored the craft tier (Essential, 1/10), surfaced open questions, resolved all but three (tracked above and in the brief).
 - Wrote `docs/discovery-brief.md` — the full discovery artifact.
 - Wrote this `CLAUDE.md` from `template/CLAUDE.md.template`, using only what was actually resolved in discovery.
-- Next: `npm run setup`.
+- Ran `npm run setup` — green (doctor: Node/npm/git/Docker/Supabase CLI all ✓). Noted 5 high-severity npm advisories in the template (brace-expansion, js-yaml, next, postcss, sharp) as an FYI, not acted on — two are a plain `npm audit fix`, three need `--force` and would bump Next out of its pinned range, which is a dependency change requiring explicit go-ahead per convention.
+- User confirmed the recommendation: skip doc-gen-master's full set, go straight to App PRD + Data Model & Security given the narrow scope + real auth/data wrinkles.
+- Resolved two gaps the PRD needed that discovery hadn't covered: roles (flat/equal for everyone) and delete behavior (soft-delete by default, explicit hard-delete option, audit-logged).
+- Wrote `docs/app-prd.md` and `docs/data-model-security.md`, referencing the IDP's existing patterns (`audit-log.ts` for the permanent-delete trail; noted `has_role.sql` is not needed for v1's flat-permission model).
+- Next: begin the build, security-first — auth, then RLS, then prove cross-user denial before any feature.
