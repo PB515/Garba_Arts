@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-const PUBLIC_PATHS = ['/login'];
+// /navratri is the one deliberate public surface (proof-of-concept pass
+// registration, no login) — see docs/data-model-security.md and CLAUDE.md
+// decision #25. Everything else in this app stays staff-only.
+const PUBLIC_PATHS = ['/login', '/navratri'];
 
 export async function proxy(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
@@ -28,8 +31,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every path except static assets, images, and favicon — this app has no
-    // public surface at all, so everything is protected by default.
+    // Every path except static assets, images, favicon, and PUBLIC_PATHS
+    // above — everything else in this app is protected by default.
     '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js).*)',
   ],
 };

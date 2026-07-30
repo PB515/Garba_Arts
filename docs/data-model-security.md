@@ -7,10 +7,10 @@
 ## Security posture (applies to every table below)
 
 - **RLS is enabled on every table, no exceptions.**
-- **The `anon` role gets zero grants anywhere.** This app has no public read surface at all — a stricter posture than the IDP's default marketing/portal golden paths.
+- **The `anon` role gets zero grants anywhere — including `navratri_registrations`, the one table a public page writes to.** `/navratri` (proof-of-concept public pass registration, no login — see `app-prd.md`'s No-List update) writes through a **server action using the service-role client**, not a direct anon RLS grant. This matters for a real reason: the price must be computed server-side from the trusted clock, never trusted from the client — a direct anon-writable table would let someone submit their own price via a raw API call. `verify-denial.ts` proves both halves: the public page can write (tested live), and a direct anon API call cannot (RLS still denies it).
 - **Flat permissions:** every policy checks only `auth.uid() is not null` (any authenticated core-team member) — no per-row ownership check, no `has_role()` tiering. This matches the App PRD's confirmed flat-role model. If a role split is ever introduced, these policies are the ones to revisit.
 - **Soft-delete via `deleted_at` / `deleted_by`** on every mutable table — normal "delete" sets these columns; normal queries filter `deleted_at is null`.
-- **Permanent removal is a real `DELETE`**, gated in the app layer behind its own confirmation step, and **always preceded by a `writeAuditLog()` call** (the IDP's `lib/patterns/audit-log.ts`) so the trail survives the row.
+- **Permanent removal is a real `DELETE`**, gated in the app layer behind its own confirmation step, and **always followed by a `writeAuditLog()` call** (the IDP's `lib/patterns/audit-log.ts`), never preceded — writing the log first would leave a false "deleted" trail if the delete then failed (a real bug hit and fixed during the students build, see `CLAUDE.md`'s Phase 2 log).
 - Every insert/update captures `created_by` / `updated_by` from the authenticated session (never client-supplied) — this is how "who entered/edited this" attribution works, per the discovery decision to use real per-person logins instead of a manual picker.
 
 ---
@@ -95,6 +95,25 @@ Already the IDP's standard shape (`lib/patterns/audit-log.ts`) — append-only, 
 | `created_at` | timestamptz, default now() | |
 
 **RLS:** authenticated: insert + read only. **No update, no delete for anyone** — append-only is enforced at the RLS level, not just by convention.
+
+### `events` / `event_registrations`
+Admin-entered (staff logs who's coming after a student tells them), not public — same flat RLS/grants as every other table. `event_registrations.friend_count` + 1 = headcount per registration. Permanent-delete of an event cascades its registrations first (no `ON DELETE CASCADE` — done explicitly in `events/actions.ts` so each deletion is deliberate and audit-logged).
+
+### `navratri_registrations`
+The one table with a public write path — see the security posture note above. Proof-of-concept: pricing/dates in `lib/navratri-config.ts` are placeholders.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, pk | |
+| `representative_name` | text, not null | The group's contact person — not an individual student account |
+| `representative_phone` | text, not null | |
+| `pass_count` | integer, not null, `>= 1` | How many passes this registration covers |
+| `price_per_pass` | numeric(10,2), not null | Snapshotted at submission time from the tier active then — never recomputed later, so a price-tier change doesn't retroactively alter past registrations |
+| `total_amount` | numeric(10,2), not null | `price_per_pass * pass_count`, computed server-side |
+| `amount_paid` | numeric(10,2), not null, default 0 | Logged manually by staff (no payment gateway, per decision #24) |
+| `remarks`, `deleted_by`, `deleted_at`, `updated_by`, `updated_at` | | Same shape as other tables |
+
+No `created_by` — there's no authenticated session to attribute a public submission to.
 
 ---
 

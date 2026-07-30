@@ -25,13 +25,13 @@ No feature is hidden or restricted between team members. `has_role()`-style RLS 
 
 ## Data that must stay private
 
-**Everything.** There is no public-facing surface, no anonymous read access, and no client/student login anywhere in this system. Every table is restricted to authenticated core-team members only — this is a stricter posture than the IDP's typical marketing/portal golden paths (which usually allow public read of some content). The `anon` Postgres role gets zero access to any application table.
+**Everything except one deliberate exception.** `/navratri` is a proof-of-concept public pass-registration page (no login) — the owner explicitly asked for it after event registration turned out to be admin-entered instead. It writes through a server action that computes the price server-side, not a direct database grant; `anon` still gets **zero** RLS/grant access to any table, including `navratri_registrations` — verified by `verify-denial.ts`. Every other surface in this system stays authenticated-core-team-only, no anonymous read access anywhere.
 
 ## Delete behavior (confirmed)
 
 Two-tier, both available to every team member:
 1. **Soft-delete (archive)** — default delete action. Record is hidden from normal views but recoverable; who/when is logged.
-2. **Permanently remove** — a separate, explicit, harder-to-trigger action (its own confirmation step in the UI) that actually deletes the row. Because this touches financial/admissions records, every permanent removal writes an entry to `audit_log` **before** the row is deleted (the audit trail must survive the row it describes).
+2. **Permanently remove** — a separate, explicit, harder-to-trigger action (its own confirmation step in the UI) that actually deletes the row. Because this touches financial/admissions records, every permanent removal writes an entry to `audit_log` **after** the row is deleted, once the delete has actually succeeded — not before (a real bug during the students build showed a false "deleted" entry when the delete then failed on an FK constraint; the ordering was fixed and this is now the standing rule).
 
 ## Core flows
 
@@ -45,7 +45,7 @@ Two-tier, both available to every team member:
 
 ## Explicitly out of scope (the No-List)
 
-- Any client, student, or public-facing page — none, ever, in this build.
+- Any client, student, or public-facing page — was "none, ever, in this build"; revised when the owner explicitly asked for `/navratri` as a public proof-of-concept. Still the default for everything else; a new public page is a deliberate exception each time, not a pattern to repeat casually.
 - Public sign-up / self-registration — accounts are invite-only, created by the core team.
 - Role-based permission differences — flat access for v1; revisit only as a deliberate change.
 - Enforced status pipeline / state machine — status stays a free tag.

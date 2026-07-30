@@ -121,6 +121,19 @@ async function main(): Promise<void> {
     .single();
   if (registrationErr || !registration) throw new Error(`seed event_registrations failed: ${registrationErr?.message}`);
 
+  const { data: navratriReg, error: navratriErr } = await svc
+    .from('navratri_registrations')
+    .insert({
+      representative_name: 'verify-denial-rep',
+      representative_phone: '0000000000',
+      pass_count: 1,
+      price_per_pass: 1,
+      total_amount: 1,
+    })
+    .select()
+    .single();
+  if (navratriErr || !navratriReg) throw new Error(`seed navratri_registrations failed: ${navratriErr?.message}`);
+
   console.log(c.dim('seeded. now proving the anon (unauthenticated) client is denied...\n'));
 
   console.log('locations:');
@@ -165,6 +178,18 @@ async function main(): Promise<void> {
     .insert({ event_id: event.id, registrant_name: 'anon-should-fail' });
   check('insert is rejected', registrationInsert.error !== null, 'insert succeeded — RLS hole');
 
+  console.log('navratri_registrations (public /navratri page writes via service-role only, not a direct anon grant):');
+  const navratriSelect = await anon.from('navratri_registrations').select('*').eq('id', navratriReg.id);
+  check('select returns no rows', (navratriSelect.data?.length ?? 0) === 0, JSON.stringify(navratriSelect.data));
+  const navratriInsert = await anon
+    .from('navratri_registrations')
+    .insert({ representative_name: 'anon-should-fail', representative_phone: '1', pass_count: 1, price_per_pass: 1, total_amount: 1 });
+  check(
+    'direct anon insert is rejected (public writes only via the server action)',
+    navratriInsert.error !== null,
+    'insert succeeded — RLS hole'
+  );
+
   console.log('audit_log (append-only — nobody may update/delete, anon may not even insert):');
   const auditInsert = await anon.from('audit_log').insert({
     action: 'anon-should-fail',
@@ -176,6 +201,7 @@ async function main(): Promise<void> {
   check('anon select returns no rows', (auditSelect.data?.length ?? 0) === 0, JSON.stringify(auditSelect.data));
 
   console.log(c.dim('\ncleaning up seeded rows via service-role...'));
+  await svc.from('navratri_registrations').delete().eq('id', navratriReg.id);
   await svc.from('event_registrations').delete().eq('id', registration.id);
   await svc.from('events').delete().eq('id', event.id);
   await svc.from('payments').delete().eq('id', payment.id);

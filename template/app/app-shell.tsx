@@ -7,7 +7,7 @@ export function AppShell({
   userEmail,
   children,
 }: {
-  active: 'dashboard' | 'students' | 'fees' | 'events';
+  active: 'dashboard' | 'students' | 'fees' | 'events' | 'navratri';
   userEmail: string | undefined;
   children: React.ReactNode;
 }) {
@@ -28,6 +28,9 @@ export function AppShell({
             </Link>
             <Link href="/events" className={active === 'events' ? 'font-semibold' : 'text-muted'}>
               Events
+            </Link>
+            <Link href="/navratri-admin" className={active === 'navratri' ? 'font-semibold' : 'text-muted'}>
+              Navratri
             </Link>
           </nav>
         </div>

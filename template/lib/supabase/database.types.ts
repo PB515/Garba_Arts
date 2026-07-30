@@ -239,6 +239,54 @@ export type Database = {
         }
         Relationships: []
       }
+      navratri_registrations: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          pass_count: number
+          price_per_pass: number
+          remarks: string | null
+          representative_name: string
+          representative_phone: string
+          total_amount: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          pass_count: number
+          price_per_pass: number
+          remarks?: string | null
+          representative_name: string
+          representative_phone: string
+          total_amount: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          pass_count?: number
+          price_per_pass?: number
+          remarks?: string | null
+          representative_name?: string
+          representative_phone?: string
+          total_amount?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
