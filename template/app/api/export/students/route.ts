@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('students')
-    .select('id, name, phone_number, source, status, location_id, batch_id, starting_date, fee_total, remarks, created_at')
+    .select('id, name, phone_number, source, referred_by, status, location_id, batch_id, inquiry_date, fee_total, remarks, created_at')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
@@ -59,10 +59,11 @@ export async function GET(request: NextRequest) {
     'Name',
     'Phone',
     'Source',
+    'Referred by',
     'Status',
     'Location',
     'Batch',
-    'Starting date',
+    'Inquiry date',
     'Fee total',
     'Paid',
     'Balance',
@@ -77,10 +78,11 @@ export async function GET(request: NextRequest) {
       s.name,
       s.phone_number,
       s.source ?? '',
+      s.referred_by ?? '',
       s.status ?? '',
       s.location_id ? (locationName.get(s.location_id) ?? '') : '',
       s.batch_id ? (batchName.get(s.batch_id) ?? '') : '',
-      s.starting_date ?? '',
+      s.inquiry_date ?? '',
       s.fee_total ?? '',
       paid,
       balance,

@@ -45,10 +45,11 @@ The core record — an inquiry/lead and, later, a student, are the same row (sta
 | `name` | text, not null | |
 | `phone_number` | text, not null | |
 | `source` | text | e.g. whatsapp / instagram / referral / walk-in / other — free text, not an enforced enum (sources will vary) |
+| `referred_by` | text, nullable | The referrer's name, captured when `source = 'referral'`. Added after owner feedback on the first live pass. |
 | `status` | text | Free tag, no enforced transitions. **Starter suggested set** (confirm with owner, not final): `inquiry`, `demo_scheduled`, `demo_done`, `joined`, `not_interested`, `dropped`. Stored as plain text so new values can be added without a migration. |
 | `location_id` | uuid, fk → locations | |
 | `batch_id` | uuid, fk → batches | |
-| `starting_date` | date, nullable | Null until the person actually starts |
+| `inquiry_date` | date, nullable | The date this lead/inquiry came in — renamed from `starting_date` after owner feedback that the original name read as "class start date," which wasn't the intent. Defaults to today on the add-inquiry form but stays editable (backdateable) for retroactive entry. |
 | `fee_total` | numeric(10,2), nullable | One-time, custom per student (confirmed). Null until a fee is agreed |
 | `remarks` | text | Free text (confirmed — no structured follow-up/reminder field for v1) |
 | `created_by` | uuid, fk → auth.users, not null | From session, never client-supplied |

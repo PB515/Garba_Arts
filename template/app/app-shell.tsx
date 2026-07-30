@@ -7,7 +7,7 @@ export function AppShell({
   userEmail,
   children,
 }: {
-  active: 'dashboard' | 'students';
+  active: 'dashboard' | 'students' | 'fees';
   userEmail: string | undefined;
   children: React.ReactNode;
 }) {
@@ -22,6 +22,9 @@ export function AppShell({
             </Link>
             <Link href="/students" className={active === 'students' ? 'font-semibold' : 'text-muted'}>
               Students
+            </Link>
+            <Link href="/fees" className={active === 'fees' ? 'font-semibold' : 'text-muted'}>
+              Fees
             </Link>
           </nav>
         </div>

@@ -209,12 +209,13 @@ export type Database = {
           deleted_by: string | null
           fee_total: number | null
           id: string
+          inquiry_date: string | null
           location_id: string | null
           name: string
           phone_number: string
+          referred_by: string | null
           remarks: string | null
           source: string | null
-          starting_date: string | null
           status: string | null
           updated_at: string | null
           updated_by: string | null
@@ -227,12 +228,13 @@ export type Database = {
           deleted_by?: string | null
           fee_total?: number | null
           id?: string
+          inquiry_date?: string | null
           location_id?: string | null
           name: string
           phone_number: string
+          referred_by?: string | null
           remarks?: string | null
           source?: string | null
-          starting_date?: string | null
           status?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -245,12 +247,13 @@ export type Database = {
           deleted_by?: string | null
           fee_total?: number | null
           id?: string
+          inquiry_date?: string | null
           location_id?: string | null
           name?: string
           phone_number?: string
+          referred_by?: string | null
           remarks?: string | null
           source?: string | null
-          starting_date?: string | null
           status?: string | null
           updated_at?: string | null
           updated_by?: string | null

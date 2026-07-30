@@ -4,6 +4,10 @@ import { createStudent } from './actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
+import { LocationBatchSelect } from './location-batch-select';
+import { SourceField } from './source-field';
+
+const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
 export default async function StudentsPage({
   searchParams,
@@ -50,11 +54,7 @@ export default async function StudentsPage({
 
   const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
   const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
-  // Batch names repeat across locations (e.g. "8-9 PM" at both Aliya and
-  // Sportsclub), so dropdown options must be qualified by location or a
-  // team member has no way to tell which one they're picking.
-  const batchOptionLabel = (b: { name: string; location_id: string }) =>
-    `${locationName.get(b.location_id) ?? '?'} · ${b.name}`;
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <AppShell active="students" userEmail={user?.email}>
@@ -62,17 +62,10 @@ export default async function StudentsPage({
         <section className="rounded-[var(--radius)] border border-border p-4">
           <h2 className="mb-3 text-sm font-semibold">Add inquiry / lead</h2>
           <form action={createStudent} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <input name="name" placeholder="Name" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-            <input name="phone_number" placeholder="Phone" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-            <select name="source" defaultValue="" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-              <option value="">Source</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="instagram">Instagram</option>
-              <option value="referral">Referral</option>
-              <option value="walk-in">Walk-in</option>
-              <option value="other">Other</option>
-            </select>
-            <select name="status" defaultValue="" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            <input name="name" placeholder="Name" required className={FIELD_CLASS} />
+            <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
+            <SourceField className={FIELD_CLASS} />
+            <select name="status" defaultValue="" className={FIELD_CLASS}>
               <option value="">Status</option>
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -80,25 +73,19 @@ export default async function StudentsPage({
                 </option>
               ))}
             </select>
-            <select name="location_id" defaultValue="" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-              <option value="">Location</option>
-              {(locations ?? []).map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select name="batch_id" defaultValue="" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-              <option value="">Batch</option>
-              {(batches ?? []).map((b) => (
-                <option key={b.id} value={b.id}>
-                  {batchOptionLabel(b)}
-                </option>
-              ))}
-            </select>
-            <input name="starting_date" type="date" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-            <input name="fee_total" type="number" step="0.01" placeholder="Fee" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-            <input name="remarks" placeholder="Remarks" className="col-span-2 rounded-[var(--radius)] border border-border px-3 py-2 text-sm sm:col-span-3" />
+            <LocationBatchSelect
+              locations={locations ?? []}
+              batches={batches ?? []}
+              locationField="location_id"
+              batchField="batch_id"
+              className={FIELD_CLASS}
+            />
+            <label className="col-span-2 text-xs text-muted sm:col-span-1">
+              Inquiry date (when this lead came in)
+              <input name="inquiry_date" type="date" defaultValue={today} className={`mt-1 w-full ${FIELD_CLASS}`} />
+            </label>
+            <input name="fee_total" type="number" step="0.01" placeholder="Fee" className={FIELD_CLASS} />
+            <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
             <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Add
             </button>
@@ -111,25 +98,20 @@ export default async function StudentsPage({
               name="q"
               defaultValue={params.q ?? ''}
               placeholder="Search name or phone"
-              className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+              className={FIELD_CLASS}
             />
-            <select name="location" defaultValue={params.location ?? ''} className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-              <option value="">All locations</option>
-              {(locations ?? []).map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select name="batch" defaultValue={params.batch ?? ''} className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-              <option value="">All batches</option>
-              {(batches ?? []).map((b) => (
-                <option key={b.id} value={b.id}>
-                  {batchOptionLabel(b)}
-                </option>
-              ))}
-            </select>
-            <select name="status" defaultValue={params.status ?? ''} className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            <LocationBatchSelect
+              locations={locations ?? []}
+              batches={batches ?? []}
+              locationField="location"
+              batchField="batch"
+              defaultLocationId={params.location ?? ''}
+              defaultBatchId={params.batch ?? ''}
+              locationPlaceholder="All locations"
+              batchPlaceholder="All batches"
+              className={FIELD_CLASS}
+            />
+            <select name="status" defaultValue={params.status ?? ''} className={FIELD_CLASS}>
               <option value="">All statuses</option>
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>

@@ -12,6 +12,8 @@ import {
   archivePayment,
   permanentlyDeletePayment,
 } from '../actions';
+import { LocationBatchSelect } from '../location-batch-select';
+import { SourceField } from '../source-field';
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,12 +47,6 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const totalPaid = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
   const balance = student.fee_total !== null ? student.fee_total - totalPaid : null;
 
-  const locationNameById = new Map((locations ?? []).map((l) => [l.id, l.name]));
-  // Batch names repeat across locations, so qualify each option so it's
-  // unambiguous which location's batch is being picked.
-  const batchOptionLabel = (b: { name: string; location_id: string }) =>
-    `${locationNameById.get(b.location_id) ?? '?'} · ${b.name}`;
-
   return (
     <AppShell active="students" userEmail={user?.email}>
       <div className="mb-4">
@@ -83,17 +79,16 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                 Phone
                 <input name="phone_number" defaultValue={student.phone_number} required className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
-              <label className="text-sm">
+              <div className="col-span-2 text-sm">
                 Source
-                <select name="source" defaultValue={student.source ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-                  <option value="">-</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="referral">Referral</option>
-                  <option value="walk-in">Walk-in</option>
-                  <option value="other">Other</option>
-                </select>
-              </label>
+                <div className="mt-1 grid grid-cols-2 gap-3">
+                  <SourceField
+                    defaultSource={student.source ?? ''}
+                    defaultReferredBy={student.referred_by ?? ''}
+                    className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
               <label className="text-sm">
                 Status
                 <select name="status" defaultValue={student.status ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
@@ -105,31 +100,23 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                   ))}
                 </select>
               </label>
+              <div className="col-span-2 text-sm">
+                Location / Batch
+                <div className="mt-1 grid grid-cols-2 gap-3">
+                  <LocationBatchSelect
+                    locations={locations ?? []}
+                    batches={batches ?? []}
+                    locationField="location_id"
+                    batchField="batch_id"
+                    defaultLocationId={student.location_id ?? ''}
+                    defaultBatchId={student.batch_id ?? ''}
+                    className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
               <label className="text-sm">
-                Location
-                <select name="location_id" defaultValue={student.location_id ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-                  <option value="">-</option>
-                  {(locations ?? []).map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                Batch
-                <select name="batch_id" defaultValue={student.batch_id ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-                  <option value="">-</option>
-                  {(batches ?? []).map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {batchOptionLabel(b)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                Starting date
-                <input name="starting_date" type="date" defaultValue={student.starting_date ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+                Inquiry date (when this lead came in)
+                <input name="inquiry_date" type="date" defaultValue={student.inquiry_date ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">
                 Fee total
