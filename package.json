@@ -26,7 +26,9 @@
     "verify:selftest": "tsx tooling/verify.ts selftest",
     "verify:denial": "tsx tooling/verify-denial.ts",
     "lint:ai-tell": "tsx tooling/ai-tell-lint.ts",
-    "create-account": "tsx tooling/create-account.ts"
+    "create-account": "tsx tooling/create-account.ts",
+    "seed-demo": "tsx tooling/seed-demo-data.ts",
+    "seed-demo:clear": "tsx tooling/seed-demo-data.ts --clear"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.10",
