@@ -107,6 +107,20 @@ async function main(): Promise<void> {
     .single();
   if (paymentErr || !payment) throw new Error(`seed payments failed: ${paymentErr?.message}`);
 
+  const { data: event, error: eventErr } = await svc
+    .from('events')
+    .insert({ name: 'verify-denial-event', created_by: seedUserId })
+    .select()
+    .single();
+  if (eventErr || !event) throw new Error(`seed events failed: ${eventErr?.message}`);
+
+  const { data: registration, error: registrationErr } = await svc
+    .from('event_registrations')
+    .insert({ event_id: event.id, registrant_name: 'verify-denial-registrant', created_by: seedUserId })
+    .select()
+    .single();
+  if (registrationErr || !registration) throw new Error(`seed event_registrations failed: ${registrationErr?.message}`);
+
   console.log(c.dim('seeded. now proving the anon (unauthenticated) client is denied...\n'));
 
   console.log('locations:');
@@ -137,6 +151,20 @@ async function main(): Promise<void> {
     .insert({ student_id: student.id, amount: 1, mode: 'cash', paid_date: '2026-01-01' });
   check('insert is rejected', paymentInsert.error !== null, 'insert succeeded — RLS hole');
 
+  console.log('events:');
+  const eventSelect = await anon.from('events').select('*').eq('id', event.id);
+  check('select returns no rows', (eventSelect.data?.length ?? 0) === 0, JSON.stringify(eventSelect.data));
+  const eventInsert = await anon.from('events').insert({ name: 'anon-should-fail' });
+  check('insert is rejected', eventInsert.error !== null, 'insert succeeded — RLS hole');
+
+  console.log('event_registrations:');
+  const registrationSelect = await anon.from('event_registrations').select('*').eq('id', registration.id);
+  check('select returns no rows', (registrationSelect.data?.length ?? 0) === 0, JSON.stringify(registrationSelect.data));
+  const registrationInsert = await anon
+    .from('event_registrations')
+    .insert({ event_id: event.id, registrant_name: 'anon-should-fail' });
+  check('insert is rejected', registrationInsert.error !== null, 'insert succeeded — RLS hole');
+
   console.log('audit_log (append-only — nobody may update/delete, anon may not even insert):');
   const auditInsert = await anon.from('audit_log').insert({
     action: 'anon-should-fail',
@@ -148,6 +176,8 @@ async function main(): Promise<void> {
   check('anon select returns no rows', (auditSelect.data?.length ?? 0) === 0, JSON.stringify(auditSelect.data));
 
   console.log(c.dim('\ncleaning up seeded rows via service-role...'));
+  await svc.from('event_registrations').delete().eq('id', registration.id);
+  await svc.from('events').delete().eq('id', event.id);
   await svc.from('payments').delete().eq('id', payment.id);
   await svc.from('students').delete().eq('id', student.id);
   await svc.from('batches').delete().eq('id', batch.id);

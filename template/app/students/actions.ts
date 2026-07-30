@@ -2,30 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
-
-async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  return { supabase, user };
-}
-
-function str(formData: FormData, key: string): string | null {
-  const v = formData.get(key);
-  const s = typeof v === 'string' ? v.trim() : '';
-  return s.length ? s : null;
-}
-
-function num(formData: FormData, key: string): number | null {
-  const s = str(formData, key);
-  if (s === null) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
+import { requireUser, str, num } from '@/lib/form';
 
 export async function createStudent(formData: FormData): Promise<void> {
   const { supabase, user } = await requireUser();

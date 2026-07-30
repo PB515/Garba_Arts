@@ -117,6 +117,92 @@ export type Database = {
         }
         Relationships: []
       }
+      event_registrations: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          event_id: string
+          fee_amount: number | null
+          friend_count: number
+          id: string
+          registrant_name: string
+          registrant_phone: string | null
+          remarks: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          event_id: string
+          fee_amount?: number | null
+          friend_count?: number
+          id?: string
+          registrant_name: string
+          registrant_phone?: string | null
+          remarks?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          event_id?: string
+          fee_amount?: number | null
+          friend_count?: number
+          id?: string
+          registrant_name?: string
+          registrant_phone?: string | null
+          remarks?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          event_date: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          event_date?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          event_date?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       example_widget: {
         Row: {
           created_at: string
