@@ -87,6 +87,8 @@ Line items, not a single "amount paid" field — required because fees can split
 | `mode` | text, not null, check in ('cash','upi','cash_upi') | `cash_upi` = a single split payment (part cash, part UPI) logged as one entry, not two rows — the owner's explicit preference over a two-line-item approach. Added `0009_whatsapp_and_split_payment.sql`. |
 | `cash_amount` | numeric, nullable | Only set when `mode = 'cash_upi'` — the real cash portion of a split payment. Added `0013_payment_cash_upi_split.sql` so the Fees tab can reconcile true Total Cash against Total collected, not just show a combined split total. |
 | `upi_amount` | numeric, nullable | Only set when `mode = 'cash_upi'` — the real UPI portion, same reasoning as `cash_amount`. |
+
+`payments_cash_upi_split_check` (`0014_payments_cash_upi_split_check.sql`) enforces both directions at the database level: a `cash_upi` row must have both `cash_amount`/`upi_amount` set and summing to `amount`; a plain `cash`/`upi` row must have both null. Added after a full audit found this was only ever guaranteed by the app's own validation (`addPayment()`), which wouldn't protect a future bulk import or a manual DB fix — this closes that gap permanently rather than relying on every future write path remembering to validate correctly.
 | `paid_date` | date, not null | |
 | `remarks` | text, nullable | e.g. "part payment" |
 | `created_by` | uuid, fk → auth.users, not null | |
