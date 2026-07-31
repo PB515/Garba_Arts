@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
-import { requireUser, str, num } from '@/lib/form';
+import { requireUser, str, num, parseNameList } from '@/lib/form';
 
 export async function createEvent(formData: FormData): Promise<void> {
   const { supabase, user } = await requireUser();
@@ -40,6 +40,7 @@ export async function updateEvent(eventId: string, formData: FormData): Promise<
       name,
       event_date: str(formData, 'event_date'),
       description: str(formData, 'description'),
+      public_registration_enabled: formData.get('public_registration_enabled') === 'on',
     })
     .eq('id', eventId);
 
@@ -57,6 +58,18 @@ export async function permanentlyDeleteEvent(eventId: string): Promise<void> {
     .from('event_registrations')
     .select('*')
     .eq('event_id', eventId);
+  const registrationIds = (registrations ?? []).map((r) => r.id);
+  const { data: attendees } = registrationIds.length
+    ? await supabase.from('event_attendees').select('*').in('registration_id', registrationIds)
+    : { data: [] as unknown[] };
+
+  if (registrationIds.length) {
+    const { error: attendeesError } = await supabase
+      .from('event_attendees')
+      .delete()
+      .in('registration_id', registrationIds);
+    if (attendeesError) throw new Error(`Could not remove attendees: ${attendeesError.message}`);
+  }
 
   const { error: regError } = await supabase.from('event_registrations').delete().eq('event_id', eventId);
   if (regError) throw new Error(`Could not remove registrations: ${regError.message}`);
@@ -69,7 +82,7 @@ export async function permanentlyDeleteEvent(eventId: string): Promise<void> {
     action: 'event.permanently_deleted',
     entity: 'event',
     entityId: eventId,
-    meta: { snapshot: existing ?? null, registrations: registrations ?? [] },
+    meta: { snapshot: existing ?? null, registrations: registrations ?? [], attendees: attendees ?? [] },
   });
 
   revalidatePath('/events');
@@ -82,18 +95,29 @@ export async function createRegistration(eventId: string, formData: FormData): P
   const registrant_name = str(formData, 'registrant_name');
   if (!registrant_name) throw new Error('Registrant name is required.');
 
-  const { error } = await supabase.from('event_registrations').insert({
-    event_id: eventId,
-    registrant_name,
-    registrant_phone: str(formData, 'registrant_phone'),
-    friend_count: num(formData, 'friend_count') ?? 0,
-    fee_amount: num(formData, 'fee_amount'),
-    amount_paid: num(formData, 'amount_paid') ?? 0,
-    remarks: str(formData, 'remarks'),
-    created_by: user.id,
-  });
+  const { data: registration, error } = await supabase
+    .from('event_registrations')
+    .insert({
+      event_id: eventId,
+      registrant_name,
+      registrant_phone: str(formData, 'registrant_phone'),
+      fee_amount: num(formData, 'fee_amount'),
+      amount_paid: num(formData, 'amount_paid') ?? 0,
+      remarks: str(formData, 'remarks'),
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
 
   if (error) throw new Error(`Could not add registration: ${error.message}`);
+
+  const attendeeNames = parseNameList(formData, 'attendee_names');
+  if (attendeeNames.length) {
+    const { error: attendeesError } = await supabase
+      .from('event_attendees')
+      .insert(attendeeNames.map((name) => ({ registration_id: registration.id, name })));
+    if (attendeesError) throw new Error(`Could not add attendees: ${attendeesError.message}`);
+  }
 
   revalidatePath(`/events/${eventId}`);
 }
@@ -113,7 +137,6 @@ export async function updateRegistration(
     .update({
       registrant_name,
       registrant_phone: str(formData, 'registrant_phone'),
-      friend_count: num(formData, 'friend_count') ?? 0,
       fee_amount: num(formData, 'fee_amount'),
       amount_paid: num(formData, 'amount_paid') ?? 0,
       remarks: str(formData, 'remarks'),
@@ -123,6 +146,19 @@ export async function updateRegistration(
     .eq('id', registrationId);
 
   if (error) throw new Error(`Could not save registration: ${error.message}`);
+
+  // Replace the attendee list wholesale rather than diffing - simpler and
+  // matches the textarea's own "this is the current full list" mental model.
+  const { error: clearError } = await supabase.from('event_attendees').delete().eq('registration_id', registrationId);
+  if (clearError) throw new Error(`Could not update attendees: ${clearError.message}`);
+
+  const attendeeNames = parseNameList(formData, 'attendee_names');
+  if (attendeeNames.length) {
+    const { error: attendeesError } = await supabase
+      .from('event_attendees')
+      .insert(attendeeNames.map((name) => ({ registration_id: registrationId, name })));
+    if (attendeesError) throw new Error(`Could not update attendees: ${attendeesError.message}`);
+  }
 
   revalidatePath(`/events/${eventId}`);
 }
@@ -147,6 +183,10 @@ export async function permanentlyDeleteRegistration(registrationId: string, even
     .select('*')
     .eq('id', registrationId)
     .single();
+  const { data: attendees } = await supabase.from('event_attendees').select('*').eq('registration_id', registrationId);
+
+  const { error: attendeesError } = await supabase.from('event_attendees').delete().eq('registration_id', registrationId);
+  if (attendeesError) throw new Error(`Could not remove attendees: ${attendeesError.message}`);
 
   const { error } = await supabase.from('event_registrations').delete().eq('id', registrationId);
   if (error) throw new Error(`Could not permanently remove registration: ${error.message}`);
@@ -156,7 +196,7 @@ export async function permanentlyDeleteRegistration(registrationId: string, even
     action: 'event_registration.permanently_deleted',
     entity: 'event_registration',
     entityId: registrationId,
-    meta: { snapshot: existing ?? null },
+    meta: { snapshot: existing ?? null, attendees: attendees ?? [] },
   });
 
   revalidatePath(`/events/${eventId}`);

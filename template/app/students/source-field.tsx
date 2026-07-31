@@ -3,17 +3,19 @@
 import { useState } from 'react';
 
 /**
- * Source dropdown + a "Referred by" name field that only appears when
- * source = referral. Owner feedback: when a lead comes from a referral,
- * capture who referred them, not just the fact that it was a referral.
+ * Source dropdown + an optional detail field. Originally only appeared for
+ * source = referral ("who referred them"); the owner asked for the same
+ * mechanic on every source so any of them can carry extra context (which
+ * Instagram post, which WhatsApp group, who spoke to them at a walk-in,
+ * etc.) — one generic field, not a different one per source.
  */
 export function SourceField({
   defaultSource = '',
-  defaultReferredBy = '',
+  defaultSourceDetail = '',
   className,
 }: {
   defaultSource?: string;
-  defaultReferredBy?: string;
+  defaultSourceDetail?: string;
   className?: string;
 }) {
   const [source, setSource] = useState(defaultSource);
@@ -28,11 +30,11 @@ export function SourceField({
         <option value="walk-in">Walk-in</option>
         <option value="other">Other</option>
       </select>
-      {source === 'referral' ? (
+      {source ? (
         <input
-          name="referred_by"
-          placeholder="Referred by (name)"
-          defaultValue={defaultReferredBy}
+          name="source_detail"
+          placeholder="Source detail (optional)"
+          defaultValue={defaultSourceDetail}
           className={className}
         />
       ) : null}

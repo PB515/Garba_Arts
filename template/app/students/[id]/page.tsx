@@ -15,6 +15,7 @@ import {
 import { LocationBatchSelect } from '../location-batch-select';
 import { SourceField } from '../source-field';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { paymentModeLabel } from '@/lib/fee-status';
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -86,12 +87,16 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                 Phone
                 <input name="phone_number" defaultValue={student.phone_number} required className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
+              <label className="text-sm">
+                WhatsApp (if different)
+                <input name="whatsapp_number" defaultValue={student.whatsapp_number ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+              </label>
               <div className="col-span-2 text-sm">
                 Source
                 <div className="mt-1 grid grid-cols-2 gap-3">
                   <SourceField
                     defaultSource={student.source ?? ''}
-                    defaultReferredBy={student.referred_by ?? ''}
+                    defaultSourceDetail={student.source_detail ?? ''}
                     className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
                   />
                 </div>
@@ -186,6 +191,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
               <select name="mode" defaultValue="cash" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
                 <option value="cash">Cash</option>
                 <option value="upi">UPI</option>
+                <option value="cash_upi">Cash + UPI (split)</option>
               </select>
               <input name="paid_date" type="date" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               <input name="remarks" placeholder="Remarks" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
@@ -204,7 +210,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                 {payments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between py-2">
                     <span>
-                      {p.paid_date} · {p.mode.toUpperCase()} · {p.amount.toFixed(2)}
+                      {p.paid_date} · {paymentModeLabel(p.mode)} · {p.amount.toFixed(2)}
                       {p.remarks ? ` · ${p.remarks}` : ''}
                     </span>
                     <span className="flex gap-3">

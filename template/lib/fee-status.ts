@@ -34,3 +34,9 @@ export function feeStatusLabel(status: FeeStatus): string {
 export function feeStatusColor(status: FeeStatus): string {
   return COLORS[status];
 }
+
+/** payments.mode -> display label. "cash_upi" is a single split payment logged in one entry, not two rows. */
+export function paymentModeLabel(mode: string): string {
+  if (mode === 'cash_upi') return 'Cash + UPI';
+  return mode.toUpperCase();
+}

@@ -61,6 +61,7 @@ export default async function InquiryPage({
           <form action={createStudent} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <input name="name" placeholder="Name" required className={FIELD_CLASS} />
             <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
+            <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
             <SourceField className={FIELD_CLASS} />
             <LocationBatchSelect
               locations={locations}

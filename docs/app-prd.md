@@ -17,7 +17,7 @@ An internal admissions/fees CRM for **The Garba Arts** (2 locations, 6 batches),
 
 `has_role()`-style RLS (the IDP's role-based pattern, previously declared "not needed for v1") is now exactly what's in use — `is_super_admin()` / `staff_location_id()`, `SECURITY DEFINER` helpers reading a `staff_roles` table. See `data-model-security.md` for the full policy shape. Role assignment happens only via `tooling/create-account.ts` (service-role) — never through the app itself.
 
-`locations`/`batches`/`events`/`event_registrations`/`navratri_registrations` are **not** location-scoped — only `students`/`payments`. The owner explicitly flagged that `events` scoping needs separate verification before deciding either way; don't assume it should follow students without asking.
+`locations`/`batches`/`events`/`event_registrations`/`event_attendees`/`navratri_registrations` are **not** location-scoped — only `students`/`payments`. The owner explicitly flagged that `events` scoping needs separate verification before deciding either way; don't assume it should follow students without asking, even now that events has its own public-facing surface too.
 
 ## Data that must stay private
 
@@ -34,20 +34,21 @@ Two-tier, both available to every team member:
 
 ## Core flows
 
-1. **Add inquiry/lead** (Inquiry tab) — the single fastest, most frequent action. Name, phone number, source (+ referrer name if Referral), location (locked to their own for a `location_admin`), batch, fee (once decided), a small demo-lecture fee (optional), remarks. Status defaults to `follow_up` — no explicit picker needed at creation.
+1. **Add inquiry/lead** (Inquiry tab) — the single fastest, most frequent action. Name, phone number, WhatsApp number (if different from the phone), source + a generic optional detail field (which Instagram post, which WhatsApp group, etc. — shown for any source, not just Referral), location (locked to their own for a `location_admin`; batch dropdown stays empty/disabled until a location is picked, since batch names repeat across locations), batch, fee (once decided), a small demo-lecture fee (optional), remarks. Status defaults to `follow_up` — no explicit picker needed at creation.
 2. **Reclassify with one click** — three small colored buttons per row in the Inquiry list (🟢 joined / 🟡 ask again / 🔴 dropped), no need to open the detail page just to change an outcome. Built specifically to be fast enough to use while on a call.
 3. **The Inquiry list never loses anyone** — every record ever created stays visible there permanently (a running historical log), regardless of outcome. Marking someone green doesn't remove them from Inquiry — it *also* makes them appear in the Joined list.
 4. **Joined tab** — everyone currently `status = joined`, with batch/location and a simple Paid / Not Paid / Half Paid badge (no rupee figures on this shared list — see "Data that must stay private"). A "Complete details" link appears next to anyone still missing batch or fee info.
 5. **Update a record** — full edit on the detail page: status, batch/location, fee, demo fee, remarks, real fee/paid/balance numbers.
-6. **Log a payment** — amount, mode (cash/UPI), date, against a specific student. Multiple payments accumulate; balance-due is derived, never manually entered.
+6. **Log a payment** — amount, mode (cash / UPI / **Cash + UPI**, for a single payment split across both in one sitting — logged as one entry, not two), date, against a specific student. Multiple payments accumulate; balance-due is derived, never manually entered.
 7. **Dashboard** — lead counts by status (ask-again/joined/dropped), inquiries this period, joined headcount by location/batch. No money at all, for any role.
 8. **Fees tab** (super_admin only) — the combined tally (expected/collected/pending, including demo fees) and the full payment log across every student.
 9. **CSV export** (super_admin only) — full or filtered dataset, for offline analysis.
 10. **CSV import** — one-time (or repeatable) load of the existing Excel data, once the file is shared. Columns to be confirmed against the actual file when it arrives — do not assume a format ahead of time.
+11. **Event registration, two paths** — staff logs a registration manually (name, phone, fee/paid, attendee names as a one-per-line textarea), **or**, per-event opt-in (`public_registration_enabled`), a real public self-registration page at `/events/[id]/register` (no login) that anyone with the link can use. Both paths capture actual attendee *names*, not just a headcount — the owner's explicit ask: "we don't just want number coming with student but also who are coming, number and name."
 
 ## Explicitly out of scope (the No-List)
 
-- Any client, student, or public-facing page — was "none, ever, in this build"; revised when the owner explicitly asked for `/navratri` as a public proof-of-concept. Still the default for everything else; a new public page is a deliberate exception each time, not a pattern to repeat casually.
+- Any client, student, or public-facing page — was "none, ever, in this build"; revised twice now, first for `/navratri`, then for opt-in per-event public registration. Still the default for everything else; a new public page is a deliberate exception each time (per-event, off by default), not a pattern to repeat casually.
 - Public sign-up / self-registration — accounts are invite-only, created by the core team.
 - Flat/role-less permissions — was the v1 default; revised to a real `super_admin`/`location_admin` split once the owner asked for it in real use.
 - Enforced status pipeline / state machine — status stays a free tag, now just 3 simplified values instead of the original 6.
@@ -71,6 +72,6 @@ No formal conversion/analytics funnel (not a marketing site). Operational succes
 ## Open items (still unresolved)
 
 1. Excel import file — pending from the owner; import utility's exact column mapping depends on it.
-2. Whether `events`/`event_registrations` also need location-scoping — owner said "need to verify first," not yet answered either way.
+2. Whether `events`/`event_registrations`/`event_attendees` also need location-scoping — owner said "need to verify first," not yet answered either way, even now that events has its own public surface.
 3. Real Navratri dates/prices — explicit placeholders in `lib/navratri-config.ts`, owner said those get decided 1-2 weeks before the actual event.
 4. The deferred UPI-payment-screenshot-as-proof feature (needs Supabase Storage — bigger than a quick add-on, its own focused pass).

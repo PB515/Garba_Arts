@@ -26,3 +26,13 @@ export function num(formData: FormData, key: string): number | null {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Parses a textarea of one-name-per-line into trimmed, non-empty names. Used for event attendee lists. */
+export function parseNameList(formData: FormData, key: string): string[] {
+  const raw = formData.get(key);
+  if (typeof raw !== 'string') return [];
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}

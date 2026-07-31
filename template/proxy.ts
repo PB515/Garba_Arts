@@ -1,16 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-// /navratri is the one deliberate public surface (proof-of-concept pass
+// /navratri is a deliberate public surface (proof-of-concept pass
 // registration, no login) — see docs/data-model-security.md and CLAUDE.md
 // decision #25. Everything else in this app stays staff-only.
 const PUBLIC_PATHS = ['/login', '/navratri'];
+
+// /events/[id]/register (and its /thank-you) is public too, but /events and
+// /events/[id] themselves are staff-only — a prefix match would wrongly open
+// the whole admin events section, so this needs its own pattern.
+const PUBLIC_EVENT_REGISTER = /^\/events\/[^/]+\/register(\/thank-you)?$/;
 
 export async function proxy(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
 
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+  const isPublic =
+    PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`)) || PUBLIC_EVENT_REGISTER.test(path);
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

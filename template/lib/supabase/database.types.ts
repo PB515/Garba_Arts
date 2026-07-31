@@ -117,16 +117,44 @@ export type Database = {
         }
         Relationships: []
       }
+      event_attendees: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          registration_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          registration_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          registration_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "event_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           amount_paid: number
           created_at: string
-          created_by: string
+          created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
           event_id: string
           fee_amount: number | null
-          friend_count: number
           id: string
           registrant_name: string
           registrant_phone: string | null
@@ -137,12 +165,11 @@ export type Database = {
         Insert: {
           amount_paid?: number
           created_at?: string
-          created_by: string
+          created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           event_id: string
           fee_amount?: number | null
-          friend_count?: number
           id?: string
           registrant_name: string
           registrant_phone?: string | null
@@ -153,12 +180,11 @@ export type Database = {
         Update: {
           amount_paid?: number
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           event_id?: string
           fee_amount?: number | null
-          friend_count?: number
           id?: string
           registrant_name?: string
           registrant_phone?: string | null
@@ -184,6 +210,7 @@ export type Database = {
           event_date: string | null
           id: string
           name: string
+          public_registration_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -192,6 +219,7 @@ export type Database = {
           event_date?: string | null
           id?: string
           name: string
+          public_registration_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -200,6 +228,7 @@ export type Database = {
           event_date?: string | null
           id?: string
           name?: string
+          public_registration_enabled?: boolean
         }
         Relationships: []
       }
@@ -378,12 +407,13 @@ export type Database = {
           location_id: string | null
           name: string
           phone_number: string
-          referred_by: string | null
           remarks: string | null
           source: string | null
+          source_detail: string | null
           status: string | null
           updated_at: string | null
           updated_by: string | null
+          whatsapp_number: string | null
         }
         Insert: {
           batch_id?: string | null
@@ -399,12 +429,13 @@ export type Database = {
           location_id?: string | null
           name: string
           phone_number: string
-          referred_by?: string | null
           remarks?: string | null
           source?: string | null
+          source_detail?: string | null
           status?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
           batch_id?: string | null
@@ -420,12 +451,13 @@ export type Database = {
           location_id?: string | null
           name?: string
           phone_number?: string
-          referred_by?: string | null
           remarks?: string | null
           source?: string | null
+          source_detail?: string | null
           status?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {

@@ -42,7 +42,13 @@ export function LocationBatchSelect({
   const [locationId, setLocationId] = useState(defaultLocationId);
   const [batchId, setBatchId] = useState(defaultBatchId);
 
-  const filteredBatches = locationId ? batches.filter((b) => b.location_id === locationId) : batches;
+  // Batch names repeat across locations (e.g. both Aliya and Sportsclub have
+  // an "8-9 PM" batch), so showing every batch merged together before a
+  // location is picked is genuinely ambiguous, not just untidy — you can't
+  // tell which "8-9 PM" you'd be selecting. Empty until a location is
+  // chosen, rather than falling back to the full unfiltered list.
+  const filteredBatches = locationId ? batches.filter((b) => b.location_id === locationId) : [];
+  const batchPlaceholderText = locationId ? batchPlaceholder : 'Pick a location first';
 
   function handleLocationChange(next: string) {
     setLocationId(next);
@@ -65,8 +71,14 @@ export function LocationBatchSelect({
           </option>
         ))}
       </select>
-      <select name={batchField} value={batchId} onChange={(e) => setBatchId(e.target.value)} className={className}>
-        <option value="">{batchPlaceholder}</option>
+      <select
+        name={batchField}
+        value={batchId}
+        onChange={(e) => setBatchId(e.target.value)}
+        disabled={!locationId}
+        className={className}
+      >
+        <option value="">{batchPlaceholderText}</option>
         {filteredBatches.map((b) => (
           <option key={b.id} value={b.id}>
             {b.name}

@@ -33,11 +33,26 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   if (error || !event) notFound();
 
+  const registrationIds = (registrations ?? []).map((r) => r.id);
+  const { data: attendees } = registrationIds.length
+    ? await supabase.from('event_attendees').select('id, registration_id, name').in('registration_id', registrationIds)
+    : { data: [] as { id: string; registration_id: string; name: string }[] };
+
+  const attendeesByRegistration = new Map<string, string[]>();
+  for (const a of attendees ?? []) {
+    const list = attendeesByRegistration.get(a.registration_id) ?? [];
+    list.push(a.name);
+    attendeesByRegistration.set(a.registration_id, list);
+  }
+
   const boundUpdate = updateEvent.bind(null, id);
   const boundPermanentDelete = permanentlyDeleteEvent.bind(null, id);
   const boundCreateRegistration = createRegistration.bind(null, id);
 
-  const totalHeadcount = (registrations ?? []).reduce((sum, r) => sum + 1 + r.friend_count, 0);
+  const totalHeadcount = (registrations ?? []).reduce(
+    (sum, r) => sum + 1 + (attendeesByRegistration.get(r.id)?.length ?? 0),
+    0
+  );
   const totalFeeExpected = (registrations ?? []).reduce((sum, r) => sum + (r.fee_amount ?? 0), 0);
   const totalCollected = (registrations ?? []).reduce((sum, r) => sum + r.amount_paid, 0);
 
@@ -65,10 +80,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               Description
               <textarea name="description" defaultValue={event.description ?? ''} rows={2} className={`mt-1 w-full ${FIELD_CLASS}`} />
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="public_registration_enabled" defaultChecked={event.public_registration_enabled} />
+              Allow public self-registration for this event
+            </label>
             <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Save
             </button>
           </form>
+
+          {event.public_registration_enabled ? (
+            <p className="border-t border-border pt-3 text-sm">
+              Public link: <code>/events/{id}/register</code>
+            </p>
+          ) : null}
 
           <div className="border-t border-border pt-3 text-sm">
             <form action={boundPermanentDelete}>
@@ -103,10 +128,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <form action={boundCreateRegistration} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <input name="registrant_name" placeholder="Registrant name" required className={FIELD_CLASS} />
           <input name="registrant_phone" placeholder="Phone (optional)" className={FIELD_CLASS} />
-          <input name="friend_count" type="number" min="0" placeholder="+ friends" defaultValue="0" className={FIELD_CLASS} />
           <input name="fee_amount" type="number" step="0.01" placeholder="Fee (leave blank if free)" className={FIELD_CLASS} />
           <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
-          <input name="remarks" placeholder="Remarks" className={`col-span-2 ${FIELD_CLASS}`} />
+          <textarea
+            name="attendee_names"
+            placeholder="People coming with them, one name per line (don't include the registrant)"
+            rows={2}
+            className={`col-span-2 sm:col-span-4 ${FIELD_CLASS}`}
+          />
+          <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
           <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
             Add
           </button>
@@ -124,7 +154,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 <tr>
                   <th className="p-3">Registrant</th>
                   <th className="p-3">Phone</th>
-                  <th className="p-3">+ Friends</th>
+                  <th className="p-3">Coming with them</th>
                   <th className="p-3">Total</th>
                   <th className="p-3">Fee</th>
                   <th className="p-3">Paid</th>
@@ -133,31 +163,34 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 </tr>
               </thead>
               <tbody>
-                {registrations.map((r) => (
-                  <tr key={r.id} className="border-t border-border">
-                    <td className="p-3">{r.registrant_name}</td>
-                    <td className="p-3">{r.registrant_phone ?? '-'}</td>
-                    <td className="p-3">{r.friend_count}</td>
-                    <td className="p-3">{1 + r.friend_count}</td>
-                    <td className="p-3">{r.fee_amount !== null ? r.fee_amount.toFixed(2) : '-'}</td>
-                    <td className="p-3">{r.amount_paid.toFixed(2)}</td>
-                    <td className="p-3">{r.remarks ?? '-'}</td>
-                    <td className="p-3">
-                      <div className="flex gap-3">
-                        <form action={archiveRegistration.bind(null, r.id, id)}>
-                          <button type="submit" className="underline">
-                            Archive
-                          </button>
-                        </form>
-                        <form action={permanentlyDeleteRegistration.bind(null, r.id, id)}>
-                          <button type="submit" className="text-red-600 underline">
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {registrations.map((r) => {
+                  const names = attendeesByRegistration.get(r.id) ?? [];
+                  return (
+                    <tr key={r.id} className="border-t border-border">
+                      <td className="p-3">{r.registrant_name}</td>
+                      <td className="p-3">{r.registrant_phone ?? '-'}</td>
+                      <td className="p-3">{names.length ? names.join(', ') : '-'}</td>
+                      <td className="p-3">{1 + names.length}</td>
+                      <td className="p-3">{r.fee_amount !== null ? r.fee_amount.toFixed(2) : '-'}</td>
+                      <td className="p-3">{r.amount_paid.toFixed(2)}</td>
+                      <td className="p-3">{r.remarks ?? '-'}</td>
+                      <td className="p-3">
+                        <div className="flex gap-3">
+                          <form action={archiveRegistration.bind(null, r.id, id)}>
+                            <button type="submit" className="underline">
+                              Archive
+                            </button>
+                          </form>
+                          <form action={permanentlyDeleteRegistration.bind(null, r.id, id)}>
+                            <button type="submit" className="text-red-600 underline">
+                              Remove
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

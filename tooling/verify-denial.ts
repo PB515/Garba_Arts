@@ -121,6 +121,13 @@ async function main(): Promise<void> {
     .single();
   if (registrationErr || !registration) throw new Error(`seed event_registrations failed: ${registrationErr?.message}`);
 
+  const { data: attendee, error: attendeeErr } = await svc
+    .from('event_attendees')
+    .insert({ registration_id: registration.id, name: 'verify-denial-attendee' })
+    .select()
+    .single();
+  if (attendeeErr || !attendee) throw new Error(`seed event_attendees failed: ${attendeeErr?.message}`);
+
   const { data: navratriReg, error: navratriErr } = await svc
     .from('navratri_registrations')
     .insert({
@@ -178,6 +185,14 @@ async function main(): Promise<void> {
     .insert({ event_id: event.id, registrant_name: 'anon-should-fail' });
   check('insert is rejected', registrationInsert.error !== null, 'insert succeeded — RLS hole');
 
+  console.log('event_attendees:');
+  const attendeeSelect = await anon.from('event_attendees').select('*').eq('id', attendee.id);
+  check('select returns no rows', (attendeeSelect.data?.length ?? 0) === 0, JSON.stringify(attendeeSelect.data));
+  const attendeeInsert = await anon
+    .from('event_attendees')
+    .insert({ registration_id: registration.id, name: 'anon-should-fail' });
+  check('insert is rejected', attendeeInsert.error !== null, 'insert succeeded — RLS hole');
+
   console.log('navratri_registrations (public /navratri page writes via service-role only, not a direct anon grant):');
   const navratriSelect = await anon.from('navratri_registrations').select('*').eq('id', navratriReg.id);
   check('select returns no rows', (navratriSelect.data?.length ?? 0) === 0, JSON.stringify(navratriSelect.data));
@@ -202,6 +217,7 @@ async function main(): Promise<void> {
 
   console.log(c.dim('\ncleaning up seeded rows via service-role...'));
   await svc.from('navratri_registrations').delete().eq('id', navratriReg.id);
+  await svc.from('event_attendees').delete().eq('id', attendee.id);
   await svc.from('event_registrations').delete().eq('id', registration.id);
   await svc.from('events').delete().eq('id', event.id);
   await svc.from('payments').delete().eq('id', payment.id);

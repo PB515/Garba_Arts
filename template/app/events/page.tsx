@@ -13,13 +13,23 @@ export default async function EventsPage() {
   } = await supabase.auth.getUser();
 
   const [{ data: events, error }, { data: registrations }] = await Promise.all([
-    supabase.from('events').select('id, name, event_date').order('event_date', { ascending: false }),
-    supabase.from('event_registrations').select('event_id, friend_count').is('deleted_at', null),
+    supabase.from('events').select('id, name, event_date, public_registration_enabled').order('event_date', { ascending: false }),
+    supabase.from('event_registrations').select('id, event_id').is('deleted_at', null),
   ]);
+
+  const registrationIds = (registrations ?? []).map((r) => r.id);
+  const attendeeCountByRegistration = new Map<string, number>();
+  if (registrationIds.length) {
+    const { data: attendees } = await supabase.from('event_attendees').select('registration_id').in('registration_id', registrationIds);
+    for (const a of attendees ?? []) {
+      attendeeCountByRegistration.set(a.registration_id, (attendeeCountByRegistration.get(a.registration_id) ?? 0) + 1);
+    }
+  }
 
   const headcountByEvent = new Map<string, number>();
   for (const r of registrations ?? []) {
-    headcountByEvent.set(r.event_id, (headcountByEvent.get(r.event_id) ?? 0) + 1 + r.friend_count);
+    const attendees = attendeeCountByRegistration.get(r.id) ?? 0;
+    headcountByEvent.set(r.event_id, (headcountByEvent.get(r.event_id) ?? 0) + 1 + attendees);
   }
 
   return (
@@ -50,7 +60,8 @@ export default async function EventsPage() {
                   <tr>
                     <th className="p-3">Name</th>
                     <th className="p-3">Date</th>
-                    <th className="p-3">Total registered (incl. friends)</th>
+                    <th className="p-3">Total registered (incl. attendees)</th>
+                    <th className="p-3">Public registration</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -63,6 +74,7 @@ export default async function EventsPage() {
                       </td>
                       <td className="p-3">{e.event_date ?? '-'}</td>
                       <td className="p-3">{headcountByEvent.get(e.id) ?? 0}</td>
+                      <td className="p-3">{e.public_registration_enabled ? 'Open' : '-'}</td>
                     </tr>
                   ))}
                 </tbody>

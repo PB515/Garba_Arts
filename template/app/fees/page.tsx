@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { paymentModeLabel } from '@/lib/fee-status';
 
 export default async function FeesPage() {
   const supabase = await createClient();
@@ -81,7 +82,7 @@ export default async function FeesPage() {
                           {studentName.get(p.student_id) ?? '-'}
                         </Link>
                       </td>
-                      <td className="p-3">{p.mode.toUpperCase()}</td>
+                      <td className="p-3">{paymentModeLabel(p.mode)}</td>
                       <td className="p-3">{p.amount.toFixed(2)}</td>
                       <td className="p-3">{p.remarks ?? '-'}</td>
                     </tr>

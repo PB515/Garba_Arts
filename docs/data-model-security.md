@@ -7,7 +7,7 @@
 ## Security posture (applies to every table below)
 
 - **RLS is enabled on every table, no exceptions.**
-- **The `anon` role gets zero grants anywhere — including `navratri_registrations`, the one table a public page writes to.** `/navratri` (proof-of-concept public pass registration, no login — see `app-prd.md`'s No-List update) writes through a **server action using the service-role client**, not a direct anon RLS grant. This matters for a real reason: the price must be computed server-side from the trusted clock, never trusted from the client — a direct anon-writable table would let someone submit their own price via a raw API call. `verify-denial.ts` proves both halves: the public page can write (tested live), and a direct anon API call cannot (RLS still denies it).
+- **The `anon` role gets zero grants anywhere — including `navratri_registrations` and `event_attendees`/`event_registrations`, the tables the two public pages write to.** `/navratri` and (per-event, opt-in) `/events/[id]/register` both write through a **server action using the service-role client**, not a direct anon RLS grant. This matters for a real reason beyond consistency: Navratri's price must be computed server-side from the trusted clock, never trusted from the client; event registration re-checks `public_registration_enabled` server-side rather than trusting the page wouldn't have rendered the form otherwise. `verify-denial.ts` proves both halves for every public-adjacent table: the public page can write (tested live in the browser), and a direct anon API call cannot (RLS still denies it).
 - **Roles, not flat permissions, as of `0008_roles_and_location_scoping.sql`.** The original v1 model (every authenticated user equal) held only through the first live pass — the owner then asked for a real split: `super_admin` (owner + family, sees everything merged) and `location_admin` (tied to exactly one location, zero access — not even read — to any other location's `students`/`payments`). `locations`/`batches`/`events`/`event_registrations`/`navratri_registrations`/`audit_log` are **not** location-scoped (not asked for yet; `events` explicitly flagged by the owner as "need to verify first"). `is_super_admin()` / `staff_location_id()` are `SECURITY DEFINER` helpers reading a new `staff_roles` table, same pattern as the IDP's `has_role.sql`.
 - **Soft-delete via `deleted_at` / `deleted_by`** on every mutable table — normal "delete" sets these columns; normal queries filter `deleted_at is null`.
 - **Permanent removal is a real `DELETE`**, gated in the app layer behind its own confirmation step, and **always followed by a `writeAuditLog()` call** (the IDP's `lib/patterns/audit-log.ts`), never preceded — writing the log first would leave a false "deleted" trail if the delete then failed (a real bug hit and fixed during the students build, see `CLAUDE.md`'s Phase 2 log).
@@ -56,8 +56,9 @@ The core record — an inquiry/lead and, later, a student, are the same row (sta
 | `id` | uuid, pk | |
 | `name` | text, not null | |
 | `phone_number` | text, not null | |
+| `whatsapp_number` | text, nullable | Separate from `phone_number` — some people call on one number, WhatsApp on another. Added `0009_whatsapp_and_split_payment.sql`. |
 | `source` | text | e.g. whatsapp / instagram / referral / walk-in / other — free text, not an enforced enum (sources will vary) |
-| `referred_by` | text, nullable | The referrer's name, captured when `source = 'referral'`. Added after owner feedback on the first live pass. |
+| `source_detail` | text, nullable | Extra context for *any* source (which Instagram post, which WhatsApp group, who spoke to them at a walk-in) — renamed from `referred_by` (`0010_source_detail.sql`) after the owner asked for the same mechanic on every source, not just Referral. One generic field, not a different one per source. |
 | `status` | text | Free tag, no enforced transitions. **The 3-color simplification, confirmed** (replaces the earlier 6-value scheme): `follow_up` (yellow, "ask again"), `dropped` (red, not interested at any stage), `joined` (green). A record never leaves the Inquiry list once created — it's a permanent historical log; "joined" just means it *also* shows up in the Joined list. Still plain text, not a CHECK constraint (status stays a flexible field, not an enforced pipeline). |
 | `location_id` | uuid, fk → locations | Also the location-scoping key for RLS — see the security posture note above |
 | `batch_id` | uuid, fk → batches | |
@@ -83,7 +84,7 @@ Line items, not a single "amount paid" field — required because fees can split
 | `id` | uuid, pk | |
 | `student_id` | uuid, fk → students, not null | |
 | `amount` | numeric(10,2), not null | |
-| `mode` | text, not null | `cash` \| `upi` (extend if a third mode ever appears — free text with these two as the only UI options for now) |
+| `mode` | text, not null, check in ('cash','upi','cash_upi') | `cash_upi` = a single split payment (part cash, part UPI) logged as one entry, not two rows — the owner's explicit preference over a two-line-item approach. Added `0009_whatsapp_and_split_payment.sql`. |
 | `paid_date` | date, not null | |
 | `remarks` | text, nullable | e.g. "part payment" |
 | `created_by` | uuid, fk → auth.users, not null | |
@@ -110,8 +111,15 @@ Already the IDP's standard shape (`lib/patterns/audit-log.ts`) — append-only, 
 
 **RLS:** authenticated: insert + read only. **No update, no delete for anyone** — append-only is enforced at the RLS level, not just by convention.
 
-### `events` / `event_registrations`
-Admin-entered (staff logs who's coming after a student tells them), not public — same flat RLS/grants as every other table. `event_registrations.friend_count` + 1 = headcount per registration. Permanent-delete of an event cascades its registrations first (no `ON DELETE CASCADE` — done explicitly in `events/actions.ts` so each deletion is deliberate and audit-logged).
+### `events` / `event_registrations` / `event_attendees`
+Two write paths now: admin-entered (staff logs who's coming after a student tells them) **and**, per-event opt-in, real public self-registration at `/events/[id]/register` — the same "server action + service-role, never a direct anon RLS grant" pattern as `/navratri`, for the same reason (don't trust a public form's own account of the world; re-check `public_registration_enabled` server-side rather than assuming the page wouldn't have rendered the form otherwise).
+
+- **`events.public_registration_enabled`** (boolean, not null, default false) — per-event toggle, added `0011_event_attendees_and_public_registration.sql`. Off by default; staff turns it on per event via a checkbox on the event's edit form.
+- **`event_registrations.friend_count` is gone**, replaced by counting `event_attendees` rows — the owner wanted actual names ("who are coming, number and name"), not just a count, and wanted it *everywhere* (admin-entered and public alike), so a count-only column would have been redundant with the real source of truth.
+- **`event_registrations.created_by` is nullable** (`0012_..._nullable_created_by.sql`) — a public registration has no session to attribute to. `events.created_by` stays `not null`; only staff create events.
+- **`event_attendees`**: `id`, `registration_id` (fk → event_registrations, not null), `name` (not null), `created_at`. Same flat `to authenticated` RLS as `event_registrations` — not location-scoped (events aren't, see the security posture note above).
+- Both the admin "Add registration" form and the public form take attendee names as a plain textarea (one name per line), parsed server-side (`lib/form.ts`'s `parseNameList`) into `event_attendees` rows. Editing a registration replaces the attendee list wholesale rather than diffing — simpler, and matches the textarea's own "this is the current full list" mental model.
+- Permanent-delete of an event cascades its registrations *and* their attendees first (no `ON DELETE CASCADE` — done explicitly in `events/actions.ts` so each deletion is deliberate and audit-logged, same FK-cascade-then-audit-log-after pattern established for students/payments).
 
 ### `navratri_registrations`
 The one table with a public write path — see the security posture note above. Proof-of-concept: pricing/dates in `lib/navratri-config.ts` are placeholders.
@@ -146,7 +154,7 @@ Two roles: **`super_admin`** (owner + family — sees everything merged across l
 
 Two separate gates, both must pass before any feature that touches these tables:
 
-1. **`tooling/verify-denial.ts`** — the anon-vs-authenticated boundary. Proves an unauthenticated request is refused, read and write, on every table (12 checks across 7 tables as of the Navratri feature).
+1. **`tooling/verify-denial.ts`** — the anon-vs-authenticated boundary. Proves an unauthenticated request is refused, read and write, on every table (14 checks across 8 tables as of `event_attendees`).
 2. **`tooling/verify-location-denial.ts`** — the `location_admin`-vs-`location_admin` boundary, added when the role split shipped. Signs in as real test accounts (an Aliya admin, a Sportsclub admin, and the super-admin) and proves: each sees their own location's students/payments; neither sees the other's, for both read *and* write; the super-admin sees both merged. This is a materially different property from #1 — passing #1 alone would not have caught a bug where two authenticated users can see each other's location.
 
 Both are pass/fail gates, not a suggestion, per the IDP's app golden path — extended here because the golden path's own "cross-user denial" language undersold what this build actually needed (cross-*location*-among-authenticated-users, not just anon-vs-authenticated).
@@ -155,4 +163,4 @@ Both are pass/fail gates, not a suggestion, per the IDP's app golden path — ex
 
 1. Excel import column mapping — depends on the file, not yet shared.
 2. Real names/emails for the location admins beyond the owner + family super-admins, if there end up being more than one location admin per location.
-3. Whether `events`/`event_registrations` also need location-scoping — the owner flagged "need to verify first" rather than confirming either way.
+3. Whether `events`/`event_registrations`/`event_attendees` also need location-scoping — the owner flagged "need to verify first" rather than confirming either way; still open even now that events has its own public-facing surface.

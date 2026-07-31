@@ -17,8 +17,9 @@ export async function createStudent(formData: FormData): Promise<void> {
     .insert({
       name,
       phone_number,
+      whatsapp_number: str(formData, 'whatsapp_number'),
       source: str(formData, 'source'),
-      referred_by: str(formData, 'referred_by'),
+      source_detail: str(formData, 'source_detail'),
       status: str(formData, 'status') ?? 'follow_up',
       location_id: str(formData, 'location_id'),
       batch_id: str(formData, 'batch_id'),
@@ -50,8 +51,9 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
     .update({
       name,
       phone_number,
+      whatsapp_number: str(formData, 'whatsapp_number'),
       source: str(formData, 'source'),
-      referred_by: str(formData, 'referred_by'),
+      source_detail: str(formData, 'source_detail'),
       status: str(formData, 'status'),
       location_id: str(formData, 'location_id'),
       batch_id: str(formData, 'batch_id'),
