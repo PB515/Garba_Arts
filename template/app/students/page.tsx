@@ -7,6 +7,7 @@ import { STATUS_OPTIONS, statusLabel, statusColor } from '@/lib/status';
 import { LocationBatchSelect } from './location-batch-select';
 import { SourceField } from './source-field';
 import { StatusDot } from './status-dot';
+import { StatusQuickSet } from './status-quick-set';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -148,18 +149,15 @@ export default async function InquiryPage({
                       <td className="p-3">{s.batch_id ? (batchName.get(s.batch_id) ?? '-') : '-'}</td>
                       <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
                       <td className="p-3">
-                        <div className="flex gap-2">
-                          {STATUS_OPTIONS.map((opt) => (
-                            <form key={opt} action={setStudentStatus.bind(null, s.id, opt)}>
-                              <button
-                                type="submit"
-                                title={statusLabel(opt)}
-                                className="size-5 rounded-full border border-border"
-                                style={{ backgroundColor: statusColor(opt) }}
-                              />
-                            </form>
-                          ))}
-                        </div>
+                        <StatusQuickSet
+                          studentName={s.name}
+                          options={STATUS_OPTIONS.map((opt) => ({
+                            value: opt,
+                            label: statusLabel(opt),
+                            color: statusColor(opt),
+                            action: setStudentStatus.bind(null, s.id, opt),
+                          }))}
+                        />
                       </td>
                     </tr>
                   ))}
