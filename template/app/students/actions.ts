@@ -19,11 +19,13 @@ export async function createStudent(formData: FormData): Promise<void> {
       phone_number,
       source: str(formData, 'source'),
       referred_by: str(formData, 'referred_by'),
-      status: str(formData, 'status'),
+      status: str(formData, 'status') ?? 'follow_up',
       location_id: str(formData, 'location_id'),
       batch_id: str(formData, 'batch_id'),
       inquiry_date: str(formData, 'inquiry_date'),
       fee_total: num(formData, 'fee_total'),
+      demo_fee_amount: num(formData, 'demo_fee_amount'),
+      demo_fee_paid: num(formData, 'demo_fee_paid') ?? 0,
       remarks: str(formData, 'remarks'),
       created_by: user.id,
     })
@@ -55,6 +57,8 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
       batch_id: str(formData, 'batch_id'),
       inquiry_date: str(formData, 'inquiry_date'),
       fee_total: num(formData, 'fee_total'),
+      demo_fee_amount: num(formData, 'demo_fee_amount'),
+      demo_fee_paid: num(formData, 'demo_fee_paid') ?? 0,
       remarks: str(formData, 'remarks'),
       updated_by: user.id,
       updated_at: new Date().toISOString(),
@@ -65,6 +69,20 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
 
   revalidatePath('/students');
   revalidatePath(`/students/${studentId}`);
+}
+
+/** Fast one-click status change from the Inquiry list — no need to open the detail page just to reclassify. */
+export async function setStudentStatus(studentId: string, status: string): Promise<void> {
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from('students')
+    .update({ status, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq('id', studentId);
+  if (error) throw new Error(`Could not update status: ${error.message}`);
+
+  revalidatePath('/students');
+  revalidatePath('/students/joined');
 }
 
 export async function archiveStudent(studentId: string): Promise<void> {

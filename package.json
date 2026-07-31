@@ -25,6 +25,7 @@
     "verify": "tsx tooling/verify.ts",
     "verify:selftest": "tsx tooling/verify.ts selftest",
     "verify:denial": "tsx tooling/verify-denial.ts",
+    "verify:location-denial": "tsx tooling/verify-location-denial.ts",
     "lint:ai-tell": "tsx tooling/ai-tell-lint.ts",
     "create-account": "tsx tooling/create-account.ts",
     "seed-demo": "tsx tooling/seed-demo-data.ts",

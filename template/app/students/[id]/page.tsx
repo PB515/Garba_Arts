@@ -14,6 +14,7 @@ import {
 } from '../actions';
 import { LocationBatchSelect } from '../location-batch-select';
 import { SourceField } from '../source-field';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +24,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: student, error }, { data: locations }, { data: batches }, { data: payments }] =
+  const [{ data: student, error }, { data: allLocations }, { data: batches }, { data: payments }, staffRole] =
     await Promise.all([
       supabase.from('students').select('*').eq('id', id).single(),
       supabase.from('locations').select('id, name').order('name'),
@@ -34,9 +35,15 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         .eq('student_id', id)
         .is('deleted_at', null)
         .order('paid_date', { ascending: false }),
+      getStaffRole(),
     ]);
 
   if (error || !student) notFound();
+
+  const superAdmin = isSuperAdmin(staffRole);
+  const locations = superAdmin
+    ? (allLocations ?? [])
+    : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
 
   const boundUpdate = updateStudent.bind(null, id);
   const boundAddPayment = addPayment.bind(null, id);
@@ -48,7 +55,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const balance = student.fee_total !== null ? student.fee_total - totalPaid : null;
 
   return (
-    <AppShell active="students" userEmail={user?.email}>
+    <AppShell active={student.status === 'joined' ? 'joined' : 'inquiry'} userEmail={user?.email}>
       <div className="mb-4">
         <Link href="/students" className="text-sm underline">
           ← Back to students
@@ -121,6 +128,14 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
               <label className="text-sm">
                 Fee total
                 <input name="fee_total" type="number" step="0.01" defaultValue={student.fee_total ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+              </label>
+              <label className="text-sm">
+                Demo fee amount
+                <input name="demo_fee_amount" type="number" step="0.01" defaultValue={student.demo_fee_amount ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+              </label>
+              <label className="text-sm">
+                Demo fee paid
+                <input name="demo_fee_paid" type="number" step="0.01" defaultValue={student.demo_fee_paid ?? 0} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
             </div>
             <label className="block text-sm">

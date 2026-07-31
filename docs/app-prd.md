@@ -10,22 +10,21 @@ An internal admissions/fees CRM for **The Garba Arts** (2 locations, 6 batches),
 
 ## User roles
 
-**One role: core team member.** Confirmed explicitly — permissions are flat across all 5–8 team members, including delete. There is no owner/staff split, no admin tier, and no client/student role of any kind — this app has zero non-staff users.
+**Two roles, revised from the original flat-permission model.** The first live pass shipped with everyone equal; the owner then asked for a real split once the app was actually being used day to day:
 
-Every team member, once logged in, can:
-- View, add, and edit any student/lead record
-- View, add, and edit any payment entry
-- Soft-delete (archive) any record
-- Permanently remove any record (a separate, explicit action from soft-delete — see below)
-- View the dashboard
-- Export CSV
-- Run the CSV import utility (once the source Excel file is available)
+- **`super_admin`** (owner + family) — sees every location merged, full CRUD everywhere, the only role that sees combined fee data (`/fees`, CSV export) and events/Navratri admin views.
+- **`location_admin`** (tied to exactly one location) — full CRUD (add/edit/archive/permanently-remove) within their own location's students and payments only. Zero access — not even read — to any other location's data. Can see an *individual* student's own fee numbers (that's "not combined"), but not the combined tally.
 
-No feature is hidden or restricted between team members. `has_role()`-style RLS (the IDP's role-based pattern) is **not needed for v1** — plain "is this user authenticated" RLS is sufficient given flat permissions. If a role split is ever wanted later (e.g. an owner-only financial view), that's a deliberate, logged re-opening of this decision, not a default to build toward now.
+`has_role()`-style RLS (the IDP's role-based pattern, previously declared "not needed for v1") is now exactly what's in use — `is_super_admin()` / `staff_location_id()`, `SECURITY DEFINER` helpers reading a `staff_roles` table. See `data-model-security.md` for the full policy shape. Role assignment happens only via `tooling/create-account.ts` (service-role) — never through the app itself.
+
+`locations`/`batches`/`events`/`event_registrations`/`navratri_registrations` are **not** location-scoped — only `students`/`payments`. The owner explicitly flagged that `events` scoping needs separate verification before deciding either way; don't assume it should follow students without asking.
 
 ## Data that must stay private
 
-**Everything except one deliberate exception.** `/navratri` is a proof-of-concept public pass-registration page (no login) — the owner explicitly asked for it after event registration turned out to be admin-entered instead. It writes through a server action that computes the price server-side, not a direct database grant; `anon` still gets **zero** RLS/grant access to any table, including `navratri_registrations` — verified by `verify-denial.ts`. Every other surface in this system stays authenticated-core-team-only, no anonymous read access anywhere.
+Layered, not flat, as of the role split:
+- **From `anon` (unauthenticated):** everything, no exception in the RLS/grant sense. `/navratri` is the one public *page* (proof-of-concept pass registration, no login), but it writes through a server action using the service-role client, not a direct database grant — `anon` still has **zero** RLS/grant access to any table, including `navratri_registrations`, verified by `verify-denial.ts`.
+- **From a `location_admin`, cross-location:** every other location's `students`/`payments`, both read and write — enforced at the RLS level, verified live by `verify-location-denial.ts` (not just trusted from the policy text — signed in as real test accounts and proved it).
+- **From a `location_admin`, within their own location:** *combined* fee data specifically — `/fees` and CSV export are super-admin-only routes (app-level check, since RLS alone can't distinguish "your own location's totals" from "everyone's totals" the way it distinguishes locations from each other). An *individual* student's own fee numbers stay visible to that location's admin on the student's own page — only the combined/aggregate view is restricted. Dashboard shows zero money, for anyone, by design — not a role restriction, just not there.
 
 ## Delete behavior (confirmed)
 
@@ -35,38 +34,43 @@ Two-tier, both available to every team member:
 
 ## Core flows
 
-1. **Add inquiry/lead** — the single fastest, most frequent action. Name, phone number, source, location, batch, status (free-tag, no enforced sequence), remarks. Fee/payment fields are optional at creation — a lead isn't necessarily paying anything yet.
-2. **Update a record** — change status, reassign batch/location, edit remarks, add a payment.
-3. **Log a payment** — amount, mode (cash/UPI), date, against a specific student. Multiple payments accumulate; balance-due is derived, never manually entered.
-4. **Dashboard** — inquiries this period, demo→joined conversion, headcount per batch/location, total collected/pending, at a glance.
-5. **Search/filter table** — e.g. "Batch 3, unpaid," across all fields.
-6. **CSV export** — full or filtered dataset, for offline analysis.
-7. **CSV import** — one-time (or repeatable) load of the existing Excel data, once the file is shared. Columns to be confirmed against the actual file when it arrives — do not assume a format ahead of time.
+1. **Add inquiry/lead** (Inquiry tab) — the single fastest, most frequent action. Name, phone number, source (+ referrer name if Referral), location (locked to their own for a `location_admin`), batch, fee (once decided), a small demo-lecture fee (optional), remarks. Status defaults to `follow_up` — no explicit picker needed at creation.
+2. **Reclassify with one click** — three small colored buttons per row in the Inquiry list (🟢 joined / 🟡 ask again / 🔴 dropped), no need to open the detail page just to change an outcome. Built specifically to be fast enough to use while on a call.
+3. **The Inquiry list never loses anyone** — every record ever created stays visible there permanently (a running historical log), regardless of outcome. Marking someone green doesn't remove them from Inquiry — it *also* makes them appear in the Joined list.
+4. **Joined tab** — everyone currently `status = joined`, with batch/location and a simple Paid / Not Paid / Half Paid badge (no rupee figures on this shared list — see "Data that must stay private"). A "Complete details" link appears next to anyone still missing batch or fee info.
+5. **Update a record** — full edit on the detail page: status, batch/location, fee, demo fee, remarks, real fee/paid/balance numbers.
+6. **Log a payment** — amount, mode (cash/UPI), date, against a specific student. Multiple payments accumulate; balance-due is derived, never manually entered.
+7. **Dashboard** — lead counts by status (ask-again/joined/dropped), inquiries this period, joined headcount by location/batch. No money at all, for any role.
+8. **Fees tab** (super_admin only) — the combined tally (expected/collected/pending, including demo fees) and the full payment log across every student.
+9. **CSV export** (super_admin only) — full or filtered dataset, for offline analysis.
+10. **CSV import** — one-time (or repeatable) load of the existing Excel data, once the file is shared. Columns to be confirmed against the actual file when it arrives — do not assume a format ahead of time.
 
 ## Explicitly out of scope (the No-List)
 
 - Any client, student, or public-facing page — was "none, ever, in this build"; revised when the owner explicitly asked for `/navratri` as a public proof-of-concept. Still the default for everything else; a new public page is a deliberate exception each time, not a pattern to repeat casually.
 - Public sign-up / self-registration — accounts are invite-only, created by the core team.
-- Role-based permission differences — flat access for v1; revisit only as a deliberate change.
-- Enforced status pipeline / state machine — status stays a free tag.
+- Flat/role-less permissions — was the v1 default; revised to a real `super_admin`/`location_admin` split once the owner asked for it in real use.
+- Enforced status pipeline / state machine — status stays a free tag, now just 3 simplified values instead of the original 6.
+- Per-day pass selection for Navratri — explicitly declined; one flat pass per registration for the whole festival.
 - GST/invoicing generation — payments are simple line items, not formal invoices.
-- Automated follow-up reminders/nudges — declined during discovery; remarks stays free text.
+- Automated follow-up reminders/nudges — declined during discovery; remarks stays free text (and now also carries the "why" behind a dropped lead, instead of more status values).
 - Any cinematic/motion craft — Essential tier only, confirmed by the discovery scorecard.
 
 ## Build order (security-first, per the IDP's app golden path)
 
 1. Auth (real per-person Supabase accounts, invite-only) →
-2. RLS policies (deny-by-default; authenticated-only read/write, everyone equal) →
+2. RLS policies (deny-by-default; authenticated-only read/write) →
 3. **Prove cross-user denial** — an unauthenticated request must be refused by every table, before any feature is built on top →
-4. Then features, in this order: students/leads CRUD → payments → dashboard → CSV export → CSV import (once the file lands).
+4. Features, in order: students/leads CRUD → payments → dashboard → CSV export → events → Navratri proof-of-concept →
+5. When the role split arrived: rewrite RLS to location-scope `students`/`payments`, **prove cross-location denial** with real signed-in test accounts (not just trusted from the policy text) → then adjust the UI (nav visibility, locked location fields, restricted routes) on top of the already-proven access boundary, never the other way around.
 
 ## Success criteria
 
 No formal conversion/analytics funnel (not a marketing site). Operational success = the team can log a lead in under the time it currently takes in Excel, no fee/payment data is ever ambiguous (balance-due is always correct because it's derived, not typed in), and nothing is lost to concurrent-edit conflicts the way Excel could.
 
-## Open items (carried from discovery, still unresolved)
+## Open items (still unresolved)
 
 1. Excel import file — pending from the owner; import utility's exact column mapping depends on it.
-2. Real names for the 2 locations and 6 batches — placeholders only until provided.
-3. The actual 5–8 team member names/emails, to create invite-only accounts.
-4. Final agreed list of status tag values (e.g. Inquiry / Demo Scheduled / Demo Done / Joined / Not Interested) — a starter set will be proposed in the Data Model doc, but should be confirmed, not assumed final.
+2. Whether `events`/`event_registrations` also need location-scoping — owner said "need to verify first," not yet answered either way.
+3. Real Navratri dates/prices — explicit placeholders in `lib/navratri-config.ts`, owner said those get decided 1-2 weeks before the actual event.
+4. The deferred UPI-payment-screenshot-as-proof feature (needs Supabase Storage — bigger than a quick add-on, its own focused pass).

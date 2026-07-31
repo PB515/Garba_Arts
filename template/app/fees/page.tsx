@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 export default async function FeesPage() {
   const supabase = await createClient();
@@ -9,8 +11,15 @@ export default async function FeesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Combined fee data across students — super-admin only. A location_admin
+  // can still see one student's own fees on that student's own page; this
+  // page is specifically the "combined" view the owner said should be
+  // restricted.
+  const staffRole = await getStaffRole();
+  if (!isSuperAdmin(staffRole)) redirect('/dashboard');
+
   const [{ data: students }, { data: payments }] = await Promise.all([
-    supabase.from('students').select('id, name, fee_total').is('deleted_at', null),
+    supabase.from('students').select('id, name, fee_total, demo_fee_amount, demo_fee_paid').is('deleted_at', null),
     supabase
       .from('payments')
       .select('id, student_id, amount, mode, paid_date, remarks')
@@ -24,16 +33,21 @@ export default async function FeesPage() {
   const totalCollected = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
   const totalPending = totalExpected - totalCollected;
 
+  const totalDemoExpected = (students ?? []).reduce((sum, s) => sum + (s.demo_fee_amount ?? 0), 0);
+  const totalDemoCollected = (students ?? []).reduce((sum, s) => sum + s.demo_fee_paid, 0);
+
   const cards = [
     { label: 'Total fee expected', value: totalExpected.toFixed(2) },
     { label: 'Total collected', value: totalCollected.toFixed(2) },
     { label: 'Total pending', value: totalPending.toFixed(2) },
+    { label: 'Demo fees expected', value: totalDemoExpected.toFixed(2) },
+    { label: 'Demo fees collected', value: totalDemoCollected.toFixed(2) },
   ];
 
   return (
     <AppShell active="fees" userEmail={user?.email}>
       <div className="space-y-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {cards.map((c) => (
             <div key={c.label} className="rounded-[var(--radius)] border border-border p-4">
               <p className="text-xs text-muted">{c.label}</p>

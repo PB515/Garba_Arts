@@ -334,6 +334,35 @@ export type Database = {
           },
         ]
       }
+      staff_roles: {
+        Row: {
+          created_at: string
+          location_id: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          location_id?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          location_id?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_roles_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           batch_id: string | null
@@ -341,6 +370,8 @@ export type Database = {
           created_by: string
           deleted_at: string | null
           deleted_by: string | null
+          demo_fee_amount: number | null
+          demo_fee_paid: number
           fee_total: number | null
           id: string
           inquiry_date: string | null
@@ -360,6 +391,8 @@ export type Database = {
           created_by: string
           deleted_at?: string | null
           deleted_by?: string | null
+          demo_fee_amount?: number | null
+          demo_fee_paid?: number
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
@@ -379,6 +412,8 @@ export type Database = {
           created_by?: string
           deleted_at?: string | null
           deleted_by?: string | null
+          demo_fee_amount?: number | null
+          demo_fee_paid?: number
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
@@ -414,7 +449,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_super_admin: { Args: never; Returns: boolean }
       keepalive: { Args: never; Returns: string }
+      staff_location_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

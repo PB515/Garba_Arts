@@ -1,36 +1,30 @@
 /**
- * status.ts — the starter status tag list for students/leads.
- *
- * NOT an enforced pipeline (discovery decision #3): a record can be created
- * or moved to any of these at any time, in any order. This list only drives
- * the dropdown/filter UI so entries stay consistent — it is not a state
- * machine and nothing here blocks a transition.
- *
- * This starter set is unconfirmed with the owner (docs/app-prd.md open
- * item #4) — add/rename values here if the real workflow needs different
- * ones; nothing else in the app depends on the exact set.
+ * status.ts — the 3-color simplification (replaces the earlier 6-value
+ * status). Still free text, not an enforced pipeline (discovery decision
+ * #3) — these are just the UI's known values, not a DB constraint.
  */
-export const STATUS_OPTIONS = [
-  'inquiry',
-  'demo_scheduled',
-  'demo_done',
-  'joined',
-  'not_interested',
-  'dropped',
-] as const;
+export const STATUS_OPTIONS = ['follow_up', 'dropped', 'joined'] as const;
 
 export type Status = (typeof STATUS_OPTIONS)[number];
 
 const LABELS: Record<Status, string> = {
-  inquiry: 'Inquiry',
-  demo_scheduled: 'Demo scheduled',
-  demo_done: 'Demo done',
-  joined: 'Joined',
-  not_interested: 'Not interested',
+  follow_up: 'Ask again',
   dropped: 'Dropped',
+  joined: 'Joined',
+};
+
+const COLORS: Record<Status, string> = {
+  follow_up: '#eab308', // yellow
+  dropped: '#dc2626', // red
+  joined: '#16a34a', // green
 };
 
 export function statusLabel(status: string | null): string {
   if (!status) return 'No status';
   return LABELS[status as Status] ?? status;
+}
+
+export function statusColor(status: string | null): string {
+  if (!status) return '#9ca3af'; // gray — no status set yet
+  return COLORS[status as Status] ?? '#9ca3af';
 }

@@ -8,7 +8,7 @@
 
 - **RLS is enabled on every table, no exceptions.**
 - **The `anon` role gets zero grants anywhere — including `navratri_registrations`, the one table a public page writes to.** `/navratri` (proof-of-concept public pass registration, no login — see `app-prd.md`'s No-List update) writes through a **server action using the service-role client**, not a direct anon RLS grant. This matters for a real reason: the price must be computed server-side from the trusted clock, never trusted from the client — a direct anon-writable table would let someone submit their own price via a raw API call. `verify-denial.ts` proves both halves: the public page can write (tested live), and a direct anon API call cannot (RLS still denies it).
-- **Flat permissions:** every policy checks only `auth.uid() is not null` (any authenticated core-team member) — no per-row ownership check, no `has_role()` tiering. This matches the App PRD's confirmed flat-role model. If a role split is ever introduced, these policies are the ones to revisit.
+- **Roles, not flat permissions, as of `0008_roles_and_location_scoping.sql`.** The original v1 model (every authenticated user equal) held only through the first live pass — the owner then asked for a real split: `super_admin` (owner + family, sees everything merged) and `location_admin` (tied to exactly one location, zero access — not even read — to any other location's `students`/`payments`). `locations`/`batches`/`events`/`event_registrations`/`navratri_registrations`/`audit_log` are **not** location-scoped (not asked for yet; `events` explicitly flagged by the owner as "need to verify first"). `is_super_admin()` / `staff_location_id()` are `SECURITY DEFINER` helpers reading a new `staff_roles` table, same pattern as the IDP's `has_role.sql`.
 - **Soft-delete via `deleted_at` / `deleted_by`** on every mutable table — normal "delete" sets these columns; normal queries filter `deleted_at is null`.
 - **Permanent removal is a real `DELETE`**, gated in the app layer behind its own confirmation step, and **always followed by a `writeAuditLog()` call** (the IDP's `lib/patterns/audit-log.ts`), never preceded — writing the log first would leave a false "deleted" trail if the delete then failed (a real bug hit and fixed during the students build, see `CLAUDE.md`'s Phase 2 log).
 - Every insert/update captures `created_by` / `updated_by` from the authenticated session (never client-supplied) — this is how "who entered/edited this" attribution works, per the discovery decision to use real per-person logins instead of a manual picker.
@@ -16,6 +16,18 @@
 ---
 
 ## Tables
+
+### `staff_roles`
+The role/location-assignment table. Never written to by the app itself — only `tooling/create-account.ts` (service-role) sets it, so there's exactly one place role assignment happens.
+
+| Column | Type | Notes |
+|---|---|---|
+| `user_id` | uuid, pk, fk → auth.users | One role per user |
+| `role` | text, not null, check in ('super_admin','location_admin') | |
+| `location_id` | uuid, fk → locations, nullable | Required (constraint-enforced) when `role = 'location_admin'`; must be null for `super_admin` |
+| `created_at` | timestamptz, default now() | |
+
+**RLS:** authenticated: read-only (every user can read the role table — the app needs it for UI decisions like hiding the Fees link). No authenticated insert/update/delete — only `service_role` can write.
 
 ### `locations`
 | Column | Type | Notes |
@@ -46,12 +58,14 @@ The core record — an inquiry/lead and, later, a student, are the same row (sta
 | `phone_number` | text, not null | |
 | `source` | text | e.g. whatsapp / instagram / referral / walk-in / other — free text, not an enforced enum (sources will vary) |
 | `referred_by` | text, nullable | The referrer's name, captured when `source = 'referral'`. Added after owner feedback on the first live pass. |
-| `status` | text | Free tag, no enforced transitions. **Starter suggested set** (confirm with owner, not final): `inquiry`, `demo_scheduled`, `demo_done`, `joined`, `not_interested`, `dropped`. Stored as plain text so new values can be added without a migration. |
-| `location_id` | uuid, fk → locations | |
+| `status` | text | Free tag, no enforced transitions. **The 3-color simplification, confirmed** (replaces the earlier 6-value scheme): `follow_up` (yellow, "ask again"), `dropped` (red, not interested at any stage), `joined` (green). A record never leaves the Inquiry list once created — it's a permanent historical log; "joined" just means it *also* shows up in the Joined list. Still plain text, not a CHECK constraint (status stays a flexible field, not an enforced pipeline). |
+| `location_id` | uuid, fk → locations | Also the location-scoping key for RLS — see the security posture note above |
 | `batch_id` | uuid, fk → batches | |
 | `inquiry_date` | date, nullable | The date this lead/inquiry came in — renamed from `starting_date` after owner feedback that the original name read as "class start date," which wasn't the intent. Defaults to today on the add-inquiry form but stays editable (backdateable) for retroactive entry. |
 | `fee_total` | numeric(10,2), nullable | One-time, custom per student (confirmed). Null until a fee is agreed |
-| `remarks` | text | Free text (confirmed — no structured follow-up/reminder field for v1) |
+| `demo_fee_amount` | numeric(10,2), nullable | A small, separate fee for attending the trial/demo lecture — independent of `fee_total` and independent of outcome (charged whether the lead ends up joined or dropped). Added `0008_roles_and_location_scoping.sql`. |
+| `demo_fee_paid` | numeric(10,2), not null, default 0 | |
+| `remarks` | text | Free text (confirmed — no structured follow-up/reminder field for v1). Also where the "why" behind a dropped lead lives (took demo but not interested vs. never took demo vs. filled the form and went cold) rather than more status enum values. |
 | `created_by` | uuid, fk → auth.users, not null | From session, never client-supplied |
 | `created_at` | timestamptz, default now() | |
 | `updated_by` | uuid, fk → auth.users | |
@@ -59,7 +73,7 @@ The core record — an inquiry/lead and, later, a student, are the same row (sta
 | `deleted_by` | uuid, fk → auth.users, nullable | Soft-delete |
 | `deleted_at` | timestamptz, nullable | Soft-delete |
 
-**RLS:** authenticated: full read/write (insert/update/soft-delete via `deleted_at`). anon: none. Hard `DELETE` privilege is granted to `authenticated` at the DB level (flat permissions — anyone can permanently remove), but the app UI requires a separate confirmation step and an `audit_log` entry before issuing it.
+**RLS:** `is_super_admin() or location_id = staff_location_id()`, both for read and write (`with check` mirrors `using`, so a `location_admin` can't insert/update a row into another location either — attempting it is a straight RLS rejection, not a silent no-op). anon: none. Hard `DELETE` is included in the same policy (both roles can permanently remove within their access), gated in the app UI behind a confirmation step and an `audit_log` entry.
 
 ### `payments`
 Line items, not a single "amount paid" field — required because fees can split across modes and installments (confirmed).
@@ -77,7 +91,7 @@ Line items, not a single "amount paid" field — required because fees can split
 | `deleted_by` | uuid, fk → auth.users, nullable | Soft-delete (correcting a mis-entered payment) |
 | `deleted_at` | timestamptz, nullable | |
 
-**RLS:** authenticated: full read/write. anon: none. Same hard-delete-with-audit-log rule as `students`.
+**RLS:** location-scoped through the parent student — `is_super_admin() or exists (select 1 from students s where s.id = payments.student_id and s.location_id = staff_location_id())`. anon: none. Same hard-delete-with-audit-log rule as `students`. Also visible on an individual student's own detail page regardless of role (that's "individual," not "combined") — the combined view (`/fees`, CSV export) is a separate, app-level, super-admin-only restriction on top of this (RLS wouldn't naturally block a `location_admin` from combining just their own location's numbers — the restriction there is "no combined view at all for them," enforced in the route, not the database).
 
 **Derived, not stored:** `balance_due = students.fee_total - sum(payments.amount where deleted_at is null and student_id = students.id)`. Computed in a view or query, never written to a column — this is the "auto balance-due" the discovery brief called for, and storing it redundantly would let it drift out of sync with the payment log.
 
@@ -119,15 +133,26 @@ No `created_by` — there's no authenticated session to attribute a public submi
 
 ## Auth model
 
-Real per-person Supabase Auth accounts (email/password or magic link — pick at build time), **invite-only**: accounts are created directly by the core team (e.g. via Supabase dashboard or a small admin-created-invite flow), never via public self-signup. No `user_roles` table is needed for v1 given flat permissions — every `auth.users` row is equally privileged inside this app. Team member identity (name shown in the UI for "entered by") can come from `auth.users.email` or a minimal `profiles(user_id, display_name)` table if emails aren't friendly enough to show directly — decide once the actual 5–8 names/emails are provided (open item, see `app-prd.md`).
+Real per-person Supabase Auth accounts, **invite-only** (`tooling/create-account.ts`, service-role, never public self-signup). Every account now needs a `staff_roles` row, assigned at creation time by the same script:
+
+```bash
+npm run create-account -- <email> <password> super_admin
+npm run create-account -- <email> <password> location_admin "Aliya"
+```
+
+Two roles: **`super_admin`** (owner + family — sees everything merged across locations) and **`location_admin`** (tied to exactly one location — full CRUD within it, zero access, not even read, to any other location's students/payments). This reverses the original flat-permission model (every user equal) from the first live pass — the owner asked for a real split once the app was actually in use. `create-account.ts` is safe to re-run against an existing email (it looks the account up and re-assigns the role instead of failing), which also makes it the tool for "fix someone's role."
 
 ## Cross-user denial proof (required before any feature ships)
 
-Per the security-first build order: after RLS is written, prove — with an actual unauthenticated request — that every table above refuses read and write. This is a pass/fail gate, not a suggestion, per the IDP's app golden path.
+Two separate gates, both must pass before any feature that touches these tables:
+
+1. **`tooling/verify-denial.ts`** — the anon-vs-authenticated boundary. Proves an unauthenticated request is refused, read and write, on every table (12 checks across 7 tables as of the Navratri feature).
+2. **`tooling/verify-location-denial.ts`** — the `location_admin`-vs-`location_admin` boundary, added when the role split shipped. Signs in as real test accounts (an Aliya admin, a Sportsclub admin, and the super-admin) and proves: each sees their own location's students/payments; neither sees the other's, for both read *and* write; the super-admin sees both merged. This is a materially different property from #1 — passing #1 alone would not have caught a bug where two authenticated users can see each other's location.
+
+Both are pass/fail gates, not a suggestion, per the IDP's app golden path — extended here because the golden path's own "cross-user denial" language undersold what this build actually needed (cross-*location*-among-authenticated-users, not just anon-vs-authenticated).
 
 ## Open items (carried from discovery / App PRD, still unresolved)
 
-1. Real names for `locations` (2) and `batches` (6) — seed data is placeholder until provided.
-2. Final status tag values — starter set proposed above, needs owner confirmation.
-3. The 5–8 team members' actual names/emails, to create their accounts and decide the `profiles` question.
-4. Excel import column mapping — depends on the file, not yet shared.
+1. Excel import column mapping — depends on the file, not yet shared.
+2. Real names/emails for the location admins beyond the owner + family super-admins, if there end up being more than one location admin per location.
+3. Whether `events`/`event_registrations` also need location-scoping — the owner flagged "need to verify first" rather than confirming either way.

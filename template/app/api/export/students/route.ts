@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 function csvEscape(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -14,11 +15,20 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
+  // CSV export is a combined, cross-student view of fee data - same
+  // "individual fees ok, combined fees super-admin-only" rule as /fees.
+  const staffRole = await getStaffRole();
+  if (!isSuperAdmin(staffRole)) {
+    return NextResponse.json({ error: 'Only super admins can export combined fee data.' }, { status: 403 });
+  }
+
   const params = request.nextUrl.searchParams;
 
   let query = supabase
     .from('students')
-    .select('id, name, phone_number, source, referred_by, status, location_id, batch_id, inquiry_date, fee_total, remarks, created_at')
+    .select(
+      'id, name, phone_number, source, referred_by, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, demo_fee_paid, remarks, created_at'
+    )
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
@@ -67,6 +77,8 @@ export async function GET(request: NextRequest) {
     'Fee total',
     'Paid',
     'Balance',
+    'Demo fee amount',
+    'Demo fee paid',
     'Remarks',
     'Created at',
   ];
@@ -86,6 +98,8 @@ export async function GET(request: NextRequest) {
       s.fee_total ?? '',
       paid,
       balance,
+      s.demo_fee_amount ?? '',
+      s.demo_fee_paid,
       s.remarks ?? '',
       s.created_at,
     ];
