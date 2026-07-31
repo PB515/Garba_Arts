@@ -17,7 +17,7 @@ An internal admissions/fees CRM for **The Garba Arts** (2 locations, 6 batches),
 
 `has_role()`-style RLS (the IDP's role-based pattern, previously declared "not needed for v1") is now exactly what's in use — `is_super_admin()` / `staff_location_id()`, `SECURITY DEFINER` helpers reading a `staff_roles` table. See `data-model-security.md` for the full policy shape. Role assignment happens only via `tooling/create-account.ts` (service-role) — never through the app itself.
 
-`locations`/`batches`/`events`/`event_registrations`/`event_attendees`/`navratri_registrations` are **not** location-scoped — only `students`/`payments`. The owner explicitly flagged that `events` scoping needs separate verification before deciding either way; don't assume it should follow students without asking, even now that events has its own public-facing surface too.
+`locations`/`batches`/`navratri_registrations` are **not** location-scoped. `event_registrations`/`event_attendees` **are**, resolving the earlier open question — but on the registration, not on `events` itself, since an event's venue (it can happen anywhere, e.g. a party plot) is unrelated to Aliya/Sportsclub; what matters is which location each *registrant* came from. `event_registrations.location_id` is nullable so a public self-registration can stay unattributed — visible only to `super_admin`, invisible to every `location_admin`, counted in an event's combined total but not in any location's own breakdown.
 
 ## Data that must stay private
 
@@ -44,7 +44,7 @@ Two-tier, both available to every team member:
 8. **Fees tab** (super_admin only) — the combined tally (expected/collected/pending, including demo fees); a fixed breakdown (collected by payment mode, by location, by location+batch, always the full dataset) plus filters (location/batch/mode) that narrow the payment log beneath it, not the breakdown; a "Total Cash"/"Total UPI" reconciliation (a Cash+UPI split payment's real cash/UPI amounts counted into each, so the two always sum to Total collected — distinct from the mode breakdown's own "Cash + UPI" row, which counts a split payment's whole amount as logged); and the full payment log across every student.
 9. **CSV export** (super_admin only) — full or filtered dataset, for offline analysis.
 10. **CSV import** — one-time (or repeatable) load of the existing Excel data, once the file is shared. Columns to be confirmed against the actual file when it arrives — do not assume a format ahead of time.
-11. **Event registration, two paths** — staff logs a registration manually (name, phone, fee/paid, attendee names as a one-per-line textarea), **or**, per-event opt-in (`public_registration_enabled`), a real public self-registration page at `/events/[id]/register` (no login) that anyone with the link can use. Both paths capture actual attendee *names*, not just a headcount — the owner's explicit ask: "we don't just want number coming with student but also who are coming, number and name."
+11. **Event registration, two paths** — staff logs a registration manually (name, phone, **location** — Aliya or Sportsclub, required — fee/paid, attendee names as a one-per-line textarea), **or**, per-event opt-in (`public_registration_enabled`), a real public self-registration page at `/events/[id]/register` (no login) that anyone with the link can use. Both paths capture actual attendee *names*, not just a headcount — the owner's explicit ask: "we don't just want number coming with student but also who are coming, number and name." The event itself carries no location (its venue is irrelevant, e.g. a party plot); a `super_admin` sees a by-location breakdown of who registered from where, a `location_admin` only ever sees their own location's registrants. Public self-registrations have no location (the form doesn't ask) and are visible only to `super_admin`, counted in the combined total but not attributed to either location.
 
 ## Explicitly out of scope (the No-List)
 
@@ -72,6 +72,5 @@ No formal conversion/analytics funnel (not a marketing site). Operational succes
 ## Open items (still unresolved)
 
 1. Excel import file — pending from the owner; import utility's exact column mapping depends on it.
-2. Whether `events`/`event_registrations`/`event_attendees` also need location-scoping — owner said "need to verify first," not yet answered either way, even now that events has its own public surface.
-3. Real Navratri dates/prices — explicit placeholders in `lib/navratri-config.ts`, owner said those get decided 1-2 weeks before the actual event.
-4. The deferred UPI-payment-screenshot-as-proof feature (needs Supabase Storage — bigger than a quick add-on, its own focused pass).
+2. Real Navratri dates/prices — explicit placeholders in `lib/navratri-config.ts`, owner said those get decided 1-2 weeks before the actual event.
+3. The deferred UPI-payment-screenshot-as-proof feature (needs Supabase Storage — bigger than a quick add-on, its own focused pass).

@@ -95,12 +95,19 @@ export async function createRegistration(eventId: string, formData: FormData): P
   const registrant_name = str(formData, 'registrant_name');
   if (!registrant_name) throw new Error('Registrant name is required.');
 
+  // The event's own venue doesn't matter for scoping - the location lives on
+  // the registration itself, so each admin's count reflects who registered
+  // from their location, not where the event happens.
+  const location_id = str(formData, 'location_id');
+  if (!location_id) throw new Error('Location is required.');
+
   const { data: registration, error } = await supabase
     .from('event_registrations')
     .insert({
       event_id: eventId,
       registrant_name,
       registrant_phone: str(formData, 'registrant_phone'),
+      location_id,
       fee_amount: num(formData, 'fee_amount'),
       amount_paid: num(formData, 'amount_paid') ?? 0,
       remarks: str(formData, 'remarks'),

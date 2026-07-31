@@ -10,6 +10,7 @@ import {
   archiveRegistration,
   permanentlyDeleteRegistration,
 } from '../actions';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -21,7 +22,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: event, error }, { data: registrations }] = await Promise.all([
+  const staffRole = await getStaffRole();
+  const superAdmin = isSuperAdmin(staffRole);
+
+  const [{ data: event, error }, { data: registrations }, { data: allLocations }] = await Promise.all([
     supabase.from('events').select('*').eq('id', id).single(),
     supabase
       .from('event_registrations')
@@ -29,9 +33,18 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .eq('event_id', id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
+    supabase.from('locations').select('id, name').order('name'),
   ]);
 
   if (error || !event) notFound();
+
+  // A location_admin only ever has one real choice, so the registration
+  // form's location field ends up with a single, effectively-locked option -
+  // same pattern the student add form already uses.
+  const locations = superAdmin
+    ? (allLocations ?? [])
+    : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
+  const locationName = new Map((allLocations ?? []).map((l) => [l.id, l.name]));
 
   const registrationIds = (registrations ?? []).map((r) => r.id);
   const { data: attendees } = registrationIds.length
@@ -55,6 +68,23 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   );
   const totalFeeExpected = (registrations ?? []).reduce((sum, r) => sum + (r.fee_amount ?? 0), 0);
   const totalCollected = (registrations ?? []).reduce((sum, r) => sum + r.amount_paid, 0);
+
+  // By-location breakdown - super_admin only, since a location_admin's
+  // registrations list is already RLS-filtered to their own location, so
+  // the combined summary above is already correct for them without this.
+  // "Unattributed" tracks public self-registrations (location_id null),
+  // which stay invisible to every location_admin but must still show up
+  // somewhere for the numbers to visibly reconcile against the combined total.
+  const byLocation = new Map<string, { headcount: number; feeExpected: number; collected: number }>();
+  let unattributed = { headcount: 0, feeExpected: 0, collected: 0 };
+  for (const r of registrations ?? []) {
+    const names = attendeesByRegistration.get(r.id)?.length ?? 0;
+    const entry = r.location_id ? (byLocation.get(r.location_id) ?? { headcount: 0, feeExpected: 0, collected: 0 }) : unattributed;
+    entry.headcount += 1 + names;
+    entry.feeExpected += r.fee_amount ?? 0;
+    entry.collected += r.amount_paid;
+    if (r.location_id) byLocation.set(r.location_id, entry);
+  }
 
   return (
     <AppShell active="events" userEmail={user?.email}>
@@ -120,6 +150,31 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <dd>{totalCollected.toFixed(2)}</dd>
             </div>
           </dl>
+
+          {superAdmin ? (
+            <div className="mt-4 border-t border-border pt-3">
+              <h3 className="mb-2 text-xs font-semibold text-muted">Registered by location</h3>
+              <dl className="space-y-1 text-sm">
+                {(allLocations ?? []).map((l) => {
+                  const entry = byLocation.get(l.id);
+                  return (
+                    <div key={l.id} className="flex justify-between">
+                      <dt>{l.name}</dt>
+                      <dd>{entry?.headcount ?? 0}</dd>
+                    </div>
+                  );
+                })}
+                <div className="flex justify-between">
+                  <dt>Unattributed (public)</dt>
+                  <dd>{unattributed.headcount}</dd>
+                </div>
+                <div className="flex justify-between border-t border-border pt-1 font-semibold">
+                  <dt>All</dt>
+                  <dd>{totalHeadcount}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -128,6 +183,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <form action={boundCreateRegistration} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <input name="registrant_name" placeholder="Registrant full name" required className={FIELD_CLASS} />
           <input name="registrant_phone" placeholder="Phone (optional)" className={FIELD_CLASS} />
+          <select
+            name="location_id"
+            required
+            defaultValue={!superAdmin ? locations[0]?.id : ''}
+            className={FIELD_CLASS}
+          >
+            <option value="" disabled>
+              Location
+            </option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
           <input name="fee_amount" type="number" step="0.01" placeholder="Fee (leave blank if free)" className={FIELD_CLASS} />
           <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
           <textarea
@@ -154,6 +224,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 <tr>
                   <th className="p-3">Registrant</th>
                   <th className="p-3">Phone</th>
+                  <th className="p-3">Location</th>
                   <th className="p-3">Coming with them</th>
                   <th className="p-3">Total</th>
                   <th className="p-3">Fee</th>
@@ -169,6 +240,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                     <tr key={r.id} className="border-t border-border">
                       <td className="p-3">{r.registrant_name}</td>
                       <td className="p-3">{r.registrant_phone ?? '-'}</td>
+                      <td className="p-3">{r.location_id ? (locationName.get(r.location_id) ?? '-') : 'Unattributed'}</td>
                       <td className="p-3">{names.length ? names.join(', ') : '-'}</td>
                       <td className="p-3">{1 + names.length}</td>
                       <td className="p-3">{r.fee_amount !== null ? r.fee_amount.toFixed(2) : '-'}</td>

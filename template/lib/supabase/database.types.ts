@@ -156,6 +156,7 @@ export type Database = {
           event_id: string
           fee_amount: number | null
           id: string
+          location_id: string | null
           registrant_name: string
           registrant_phone: string | null
           remarks: string | null
@@ -171,6 +172,7 @@ export type Database = {
           event_id: string
           fee_amount?: number | null
           id?: string
+          location_id?: string | null
           registrant_name: string
           registrant_phone?: string | null
           remarks?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           event_id?: string
           fee_amount?: number | null
           id?: string
+          location_id?: string | null
           registrant_name?: string
           registrant_phone?: string | null
           remarks?: string | null
@@ -198,6 +201,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]

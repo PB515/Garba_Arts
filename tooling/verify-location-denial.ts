@@ -120,6 +120,93 @@ async function main(): Promise<void> {
   check('super_admin sees Aliya students', (superAliya?.length ?? 0) > 0);
   check('super_admin sees Sportsclub students', (superSportsclub?.length ?? 0) > 0);
 
+  console.log(c.dim('\nevent_registrations follow the same location scoping (0015)...'));
+  const {
+    data: { user: superAdminUser },
+  } = await superAdmin.auth.getUser();
+  if (!superAdminUser) throw new Error('could not resolve the signed-in super_admin user');
+  const { data: seededEvent, error: seedEventError } = await superAdmin
+    .from('events')
+    .insert({ name: '[VERIFY] location-scoping test event', created_by: superAdminUser.id })
+    .select('id')
+    .single();
+  if (!seededEvent) throw new Error(`could not seed a test event: ${seedEventError?.message}`);
+
+  const { data: aliyaReg } = await superAdmin
+    .from('event_registrations')
+    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] Aliya registrant', location_id: aliyaLoc.id })
+    .select('id')
+    .single();
+  const { data: sportsclubReg } = await superAdmin
+    .from('event_registrations')
+    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] Sportsclub registrant', location_id: sportsclubLoc.id })
+    .select('id')
+    .single();
+  const { data: unattributedReg } = await superAdmin
+    .from('event_registrations')
+    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] unattributed (public-style) registrant', location_id: null })
+    .select('id')
+    .single();
+  if (!aliyaReg || !sportsclubReg || !unattributedReg) throw new Error('could not seed test registrations');
+
+  const { data: aliyaSeesOwnReg } = await aliya.from('event_registrations').select('id').eq('id', aliyaReg.id);
+  check('Aliya admin sees its own location\'s registration', (aliyaSeesOwnReg?.length ?? 0) === 1);
+
+  const { data: aliyaSeesSportsclubReg } = await aliya.from('event_registrations').select('id').eq('id', sportsclubReg.id);
+  check('Aliya admin sees 0 Sportsclub registrations', (aliyaSeesSportsclubReg?.length ?? 0) === 0, JSON.stringify(aliyaSeesSportsclubReg));
+
+  const { data: sportsclubSeesAliyaReg } = await sportsclub.from('event_registrations').select('id').eq('id', aliyaReg.id);
+  check('Sportsclub admin sees 0 Aliya registrations', (sportsclubSeesAliyaReg?.length ?? 0) === 0, JSON.stringify(sportsclubSeesAliyaReg));
+
+  const { data: aliyaSeesUnattributed } = await aliya.from('event_registrations').select('id').eq('id', unattributedReg.id);
+  const { data: sportsclubSeesUnattributed } = await sportsclub.from('event_registrations').select('id').eq('id', unattributedReg.id);
+  check(
+    'Neither location admin sees an unattributed (public-style) registration',
+    (aliyaSeesUnattributed?.length ?? 0) === 0 && (sportsclubSeesUnattributed?.length ?? 0) === 0,
+    JSON.stringify({ aliyaSeesUnattributed, sportsclubSeesUnattributed })
+  );
+
+  const { data: superSeesAll } = await superAdmin
+    .from('event_registrations')
+    .select('id')
+    .in('id', [aliyaReg.id, sportsclubReg.id, unattributedReg.id]);
+  check('super_admin sees all 3 (both locations + unattributed)', (superSeesAll?.length ?? 0) === 3);
+
+  const crossLocationRegInsert = await aliya
+    .from('event_registrations')
+    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] should fail', location_id: sportsclubLoc.id });
+  check(
+    'Aliya admin cannot insert a Sportsclub-location registration',
+    crossLocationRegInsert.error !== null,
+    'insert succeeded — RLS hole'
+  );
+
+  console.log(c.dim('\nevent_attendees inherit scoping from their parent registration...'));
+  const { data: attendeeUnderAliyaReg } = await superAdmin
+    .from('event_attendees')
+    .insert({ registration_id: aliyaReg.id, name: '[VERIFY] attendee under Aliya reg' })
+    .select('id')
+    .single();
+  if (attendeeUnderAliyaReg) {
+    const { data: aliyaSeesAttendee } = await aliya.from('event_attendees').select('id').eq('id', attendeeUnderAliyaReg.id);
+    check('Aliya admin sees an attendee under its own registration', (aliyaSeesAttendee?.length ?? 0) === 1);
+
+    const { data: sportsclubSeesAttendee } = await sportsclub
+      .from('event_attendees')
+      .select('id')
+      .eq('id', attendeeUnderAliyaReg.id);
+    check(
+      'Sportsclub admin sees 0 attendees under an Aliya registration',
+      (sportsclubSeesAttendee?.length ?? 0) === 0,
+      JSON.stringify(sportsclubSeesAttendee)
+    );
+  }
+
+  console.log(c.dim('\ncleaning up seeded event-registration rows via super_admin...'));
+  await superAdmin.from('event_attendees').delete().eq('registration_id', aliyaReg.id);
+  await superAdmin.from('event_registrations').delete().eq('event_id', seededEvent.id);
+  await superAdmin.from('events').delete().eq('id', seededEvent.id);
+
   if (failures > 0) {
     console.log(c.red(`\n✗ ${failures} check(s) FAILED — location scoping is not correctly enforced`));
     process.exit(1);
