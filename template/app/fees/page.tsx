@@ -5,8 +5,16 @@ import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
+import { LocationBatchSelect } from '@/app/students/location-batch-select';
 
-export default async function FeesPage() {
+const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
+
+export default async function FeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ location?: string; batch?: string; mode?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -19,23 +27,73 @@ export default async function FeesPage() {
   const staffRole = await getStaffRole();
   if (!isSuperAdmin(staffRole)) redirect('/dashboard');
 
-  const [{ data: students }, { data: payments }] = await Promise.all([
-    supabase.from('students').select('id, name, fee_total, demo_fee_amount, demo_fee_paid').is('deleted_at', null),
+  const [{ data: students }, { data: payments }, { data: locations }, { data: batches }] = await Promise.all([
+    supabase
+      .from('students')
+      .select('id, name, location_id, batch_id, fee_total, demo_fee_amount, demo_fee_paid')
+      .is('deleted_at', null),
     supabase
       .from('payments')
-      .select('id, student_id, amount, mode, paid_date, remarks')
+      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
+    supabase.from('locations').select('id, name').order('name'),
+    supabase.from('batches').select('id, name, location_id').order('name'),
   ]);
 
-  const studentName = new Map((students ?? []).map((s) => [s.id, s.name]));
+  const studentById = new Map((students ?? []).map((s) => [s.id, s]));
+  const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
+  const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
 
+  // --- Fixed breakdown report — always the full picture, unaffected by the
+  // filters below (which only narrow the payment log). "So can see what
+  // type of payment come" was the ask: every slice at a glance, not one
+  // slice at a time. ---
   const totalExpected = (students ?? []).reduce((sum, s) => sum + (s.fee_total ?? 0), 0);
   const totalCollected = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
   const totalPending = totalExpected - totalCollected;
-
   const totalDemoExpected = (students ?? []).reduce((sum, s) => sum + (s.demo_fee_amount ?? 0), 0);
   const totalDemoCollected = (students ?? []).reduce((sum, s) => sum + s.demo_fee_paid, 0);
+
+  const byMode: Record<string, number> = { cash: 0, upi: 0, cash_upi: 0 };
+  const byLocation = new Map<string, number>();
+  const byBatch = new Map<string, number>();
+  // Total Cash / Total UPI — real money reconciliation, separate from "how
+  // it was logged" above. A split payment decomposes into its actual
+  // cash_amount/upi_amount so these two numbers always add up to
+  // totalCollected, unlike byMode.cash_upi which counts the whole split
+  // amount as its own bucket.
+  let totalCash = 0;
+  let totalUpi = 0;
+  for (const p of payments ?? []) {
+    byMode[p.mode] = (byMode[p.mode] ?? 0) + p.amount;
+    if (p.mode === 'cash_upi') {
+      totalCash += p.cash_amount ?? 0;
+      totalUpi += p.upi_amount ?? 0;
+    } else if (p.mode === 'cash') {
+      totalCash += p.amount;
+    } else if (p.mode === 'upi') {
+      totalUpi += p.amount;
+    }
+    const student = studentById.get(p.student_id);
+    if (!student) continue;
+    if (student.location_id) byLocation.set(student.location_id, (byLocation.get(student.location_id) ?? 0) + p.amount);
+    if (student.batch_id) byBatch.set(student.batch_id, (byBatch.get(student.batch_id) ?? 0) + p.amount);
+  }
+
+  // --- Filters — narrow the payment log only, per the breakdown/filter split above ---
+  let filteredStudentIds: Set<string> | null = null;
+  if (params.location || params.batch) {
+    filteredStudentIds = new Set(
+      (students ?? [])
+        .filter((s) => (params.location ? s.location_id === params.location : true))
+        .filter((s) => (params.batch ? s.batch_id === params.batch : true))
+        .map((s) => s.id)
+    );
+  }
+  const filteredPayments = (payments ?? [])
+    .filter((p) => (filteredStudentIds ? filteredStudentIds.has(p.student_id) : true))
+    .filter((p) => (params.mode ? p.mode === params.mode : true));
 
   const cards = [
     { label: 'Total fee expected', value: totalExpected.toFixed(2) },
@@ -57,10 +115,102 @@ export default async function FeesPage() {
           ))}
         </div>
 
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <p className="text-xs text-muted">Total Cash</p>
+            <p className="mt-1 text-2xl font-semibold">{totalCash.toFixed(2)}</p>
+          </div>
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <p className="text-xs text-muted">Total UPI</p>
+            <p className="mt-1 text-2xl font-semibold">{totalUpi.toFixed(2)}</p>
+          </div>
+        </section>
+
+        <section className="grid gap-6 sm:grid-cols-3">
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <h2 className="mb-3 text-sm font-semibold">Collected by payment mode</h2>
+            <dl className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <dt>Cash</dt>
+                <dd>{(byMode.cash ?? 0).toFixed(2)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>UPI</dt>
+                <dd>{(byMode.upi ?? 0).toFixed(2)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>Cash + UPI</dt>
+                <dd>{(byMode.cash_upi ?? 0).toFixed(2)}</dd>
+              </div>
+              <div className="flex justify-between border-t border-border pt-1 font-semibold">
+                <dt>All</dt>
+                <dd>{totalCollected.toFixed(2)}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <h2 className="mb-3 text-sm font-semibold">Collected by location</h2>
+            <dl className="space-y-1 text-sm">
+              {(locations ?? []).map((l) => (
+                <div key={l.id} className="flex justify-between">
+                  <dt>{l.name}</dt>
+                  <dd>{(byLocation.get(l.id) ?? 0).toFixed(2)}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-border pt-1 font-semibold">
+                <dt>All</dt>
+                <dd>{totalCollected.toFixed(2)}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <h2 className="mb-3 text-sm font-semibold">Collected by batch</h2>
+            <dl className="space-y-1 text-sm">
+              {(batches ?? []).map((b) => (
+                <div key={b.id} className="flex justify-between">
+                  <dt>
+                    {locationName.get(b.location_id)} · {b.name}
+                  </dt>
+                  <dd>{(byBatch.get(b.id) ?? 0).toFixed(2)}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-border pt-1 font-semibold">
+                <dt>All</dt>
+                <dd>{totalCollected.toFixed(2)}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
         <section>
           <h2 className="mb-3 text-sm font-semibold">All payments</h2>
-          {!payments?.length ? (
-            <EmptyState title="No payments logged yet" message="Payments logged against any student show up here." />
+          <form className="mb-4 flex flex-wrap gap-3" method="get">
+            <LocationBatchSelect
+              locations={locations ?? []}
+              batches={batches ?? []}
+              locationField="location"
+              batchField="batch"
+              defaultLocationId={params.location ?? ''}
+              defaultBatchId={params.batch ?? ''}
+              locationPlaceholder="All locations"
+              batchPlaceholder="All batches"
+              className={FIELD_CLASS}
+            />
+            <select name="mode" defaultValue={params.mode ?? ''} className={FIELD_CLASS}>
+              <option value="">All payment modes</option>
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="cash_upi">Cash + UPI</option>
+            </select>
+            <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+              Filter
+            </button>
+          </form>
+
+          {!filteredPayments.length ? (
+            <EmptyState title="No payments" message="No payments match this filter." />
           ) : (
             <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
               <table className="w-full text-sm">
@@ -68,25 +218,32 @@ export default async function FeesPage() {
                   <tr>
                     <th className="p-3">Date</th>
                     <th className="p-3">Student</th>
+                    <th className="p-3">Location</th>
+                    <th className="p-3">Batch</th>
                     <th className="p-3">Mode</th>
                     <th className="p-3">Amount</th>
                     <th className="p-3">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map((p) => (
-                    <tr key={p.id} className="border-t border-border">
-                      <td className="p-3">{p.paid_date}</td>
-                      <td className="p-3">
-                        <Link href={`/students/${p.student_id}`} className="underline">
-                          {studentName.get(p.student_id) ?? '-'}
-                        </Link>
-                      </td>
-                      <td className="p-3">{paymentModeLabel(p.mode)}</td>
-                      <td className="p-3">{p.amount.toFixed(2)}</td>
-                      <td className="p-3">{p.remarks ?? '-'}</td>
-                    </tr>
-                  ))}
+                  {filteredPayments.map((p) => {
+                    const student = studentById.get(p.student_id);
+                    return (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="p-3">{p.paid_date}</td>
+                        <td className="p-3">
+                          <Link href={`/students/${p.student_id}`} className="underline">
+                            {student?.name ?? '-'}
+                          </Link>
+                        </td>
+                        <td className="p-3">{student?.location_id ? locationName.get(student.location_id) : '-'}</td>
+                        <td className="p-3">{student?.batch_id ? batchName.get(student.batch_id) : '-'}</td>
+                        <td className="p-3">{paymentModeLabel(p.mode)}</td>
+                        <td className="p-3">{p.amount.toFixed(2)}</td>
+                        <td className="p-3">{p.remarks ?? '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

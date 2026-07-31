@@ -319,6 +319,7 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          cash_amount: number | null
           created_at: string
           created_by: string
           deleted_at: string | null
@@ -328,9 +329,11 @@ export type Database = {
           paid_date: string
           remarks: string | null
           student_id: string
+          upi_amount: number | null
         }
         Insert: {
           amount: number
+          cash_amount?: number | null
           created_at?: string
           created_by: string
           deleted_at?: string | null
@@ -340,9 +343,11 @@ export type Database = {
           paid_date: string
           remarks?: string | null
           student_id: string
+          upi_amount?: number | null
         }
         Update: {
           amount?: number
+          cash_amount?: number | null
           created_at?: string
           created_by?: string
           deleted_at?: string | null
@@ -352,6 +357,7 @@ export type Database = {
           paid_date?: string
           remarks?: string | null
           student_id?: string
+          upi_amount?: number | null
         }
         Relationships: [
           {

@@ -147,17 +147,34 @@ export async function permanentlyDeleteStudent(studentId: string): Promise<void>
 export async function addPayment(studentId: string, formData: FormData): Promise<void> {
   const { supabase, user } = await requireUser();
 
-  const amount = num(formData, 'amount');
   const mode = str(formData, 'mode');
   const paid_date = str(formData, 'paid_date');
-  if (!amount || amount <= 0 || !mode || !paid_date) {
-    throw new Error('Amount, mode, and date are required.');
+  if (!mode || !paid_date) throw new Error('Mode and date are required.');
+
+  // Cash + UPI (split) stores the two real amounts, not just a combined
+  // figure, so the Fees tab can reconcile Total Cash / Total UPI against
+  // the grand total. Plain cash/upi keeps the single "amount" field.
+  let amount: number | null;
+  let cash_amount: number | null = null;
+  let upi_amount: number | null = null;
+  if (mode === 'cash_upi') {
+    cash_amount = num(formData, 'cash_amount');
+    upi_amount = num(formData, 'upi_amount');
+    if (!cash_amount || cash_amount <= 0 || !upi_amount || upi_amount <= 0) {
+      throw new Error('Both cash amount and UPI amount are required for a split payment.');
+    }
+    amount = cash_amount + upi_amount;
+  } else {
+    amount = num(formData, 'amount');
+    if (!amount || amount <= 0) throw new Error('Amount is required.');
   }
 
   const { error } = await supabase.from('payments').insert({
     student_id: studentId,
     amount,
     mode,
+    cash_amount,
+    upi_amount,
     paid_date,
     remarks: str(formData, 'remarks'),
     created_by: user.id,

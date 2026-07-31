@@ -14,6 +14,7 @@ import {
 } from '../actions';
 import { LocationBatchSelect } from '../location-batch-select';
 import { SourceField } from '../source-field';
+import { PaymentModeFields } from '../payment-mode-fields';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
 
@@ -187,12 +188,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             </dl>
 
             <form action={boundAddPayment} className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-4">
-              <input name="amount" type="number" step="0.01" placeholder="Amount" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              <select name="mode" defaultValue="cash" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-                <option value="cash">Cash</option>
-                <option value="upi">UPI</option>
-                <option value="cash_upi">Cash + UPI (split)</option>
-              </select>
+              <PaymentModeFields className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               <input name="paid_date" type="date" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               <input name="remarks" placeholder="Remarks" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               <button type="submit" className="col-span-2 rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground sm:col-span-4">

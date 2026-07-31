@@ -85,6 +85,8 @@ Line items, not a single "amount paid" field — required because fees can split
 | `student_id` | uuid, fk → students, not null | |
 | `amount` | numeric(10,2), not null | |
 | `mode` | text, not null, check in ('cash','upi','cash_upi') | `cash_upi` = a single split payment (part cash, part UPI) logged as one entry, not two rows — the owner's explicit preference over a two-line-item approach. Added `0009_whatsapp_and_split_payment.sql`. |
+| `cash_amount` | numeric, nullable | Only set when `mode = 'cash_upi'` — the real cash portion of a split payment. Added `0013_payment_cash_upi_split.sql` so the Fees tab can reconcile true Total Cash against Total collected, not just show a combined split total. |
+| `upi_amount` | numeric, nullable | Only set when `mode = 'cash_upi'` — the real UPI portion, same reasoning as `cash_amount`. |
 | `paid_date` | date, not null | |
 | `remarks` | text, nullable | e.g. "part payment" |
 | `created_by` | uuid, fk → auth.users, not null | |
