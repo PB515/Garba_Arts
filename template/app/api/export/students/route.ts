@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { orIlikeValue } from '@/lib/form';
 
 function csvEscape(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -39,7 +40,10 @@ export async function GET(request: NextRequest) {
   if (location) query = query.eq('location_id', location);
   if (batch) query = query.eq('batch_id', batch);
   if (status) query = query.eq('status', status);
-  if (q) query = query.or(`name.ilike.%${q}%,phone_number.ilike.%${q}%`);
+  if (q) {
+    const v = orIlikeValue(q);
+    query = query.or(`name.ilike.${v},phone_number.ilike.${v}`);
+  }
 
   const [{ data: students, error }, { data: locations }, { data: batches }] = await Promise.all([
     query,

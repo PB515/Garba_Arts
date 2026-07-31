@@ -27,6 +27,22 @@ export function num(formData: FormData, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Builds a safe `ilike` value for PostgREST's `.or()` filter string. A raw
+ * search term containing a comma or parenthesis (e.g. "Patel, R") breaks the
+ * filter's own syntax - found live when a comma in the Inquiry search box
+ * crashed the whole page with a raw "failed to parse logic tree" error.
+ * PostgREST's escape hatch: wrap the value in double quotes when it contains
+ * a reserved character, backslash-escaping any literal backslash/quote.
+ */
+export function orIlikeValue(term: string): string {
+  const value = `%${term}%`;
+  if (/[,.():"]/.test(value)) {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  return value;
+}
+
 /** Parses a textarea of one-name-per-line into trimmed, non-empty names. Used for event attendee lists. */
 export function parseNameList(formData: FormData, key: string): string[] {
   const raw = formData.get(key);

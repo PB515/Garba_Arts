@@ -6,6 +6,7 @@ import { LocationBatchSelect } from '../location-batch-select';
 import { feeStatus, feeStatusLabel, feeStatusColor, feeStatusRowTint, isFeePending } from '@/lib/fee-status';
 import { StatusDot } from '../status-dot';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { orIlikeValue } from '@/lib/form';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -41,7 +42,10 @@ export default async function JoinedStudentsPage({
 
   if (params.location) query = query.eq('location_id', params.location);
   if (params.batch) query = query.eq('batch_id', params.batch);
-  if (params.q) query = query.or(`name.ilike.%${params.q}%,phone_number.ilike.%${params.q}%`);
+  if (params.q) {
+    const v = orIlikeValue(params.q);
+    query = query.or(`name.ilike.${v},phone_number.ilike.${v}`);
+  }
 
   const { data: students, error } = await query;
 

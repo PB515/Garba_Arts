@@ -12,6 +12,13 @@ export async function createStudent(formData: FormData): Promise<void> {
   const phone_number = str(formData, 'phone_number');
   if (!name || !phone_number) throw new Error('Name and phone number are required.');
 
+  const fee_total = num(formData, 'fee_total');
+  const demo_fee_amount = num(formData, 'demo_fee_amount');
+  const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
+  if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
+    throw new Error('Fee amounts cannot be negative.');
+  }
+
   const { data, error } = await supabase
     .from('students')
     .insert({
@@ -24,9 +31,9 @@ export async function createStudent(formData: FormData): Promise<void> {
       location_id: str(formData, 'location_id'),
       batch_id: str(formData, 'batch_id'),
       inquiry_date: str(formData, 'inquiry_date'),
-      fee_total: num(formData, 'fee_total'),
-      demo_fee_amount: num(formData, 'demo_fee_amount'),
-      demo_fee_paid: num(formData, 'demo_fee_paid') ?? 0,
+      fee_total,
+      demo_fee_amount,
+      demo_fee_paid,
       remarks: str(formData, 'remarks'),
       created_by: user.id,
     })
@@ -46,6 +53,13 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
   const phone_number = str(formData, 'phone_number');
   if (!name || !phone_number) throw new Error('Name and phone number are required.');
 
+  const fee_total = num(formData, 'fee_total');
+  const demo_fee_amount = num(formData, 'demo_fee_amount');
+  const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
+  if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
+    throw new Error('Fee amounts cannot be negative.');
+  }
+
   const { error } = await supabase
     .from('students')
     .update({
@@ -58,9 +72,9 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
       location_id: str(formData, 'location_id'),
       batch_id: str(formData, 'batch_id'),
       inquiry_date: str(formData, 'inquiry_date'),
-      fee_total: num(formData, 'fee_total'),
-      demo_fee_amount: num(formData, 'demo_fee_amount'),
-      demo_fee_paid: num(formData, 'demo_fee_paid') ?? 0,
+      fee_total,
+      demo_fee_amount,
+      demo_fee_paid,
       remarks: str(formData, 'remarks'),
       updated_by: user.id,
       updated_at: new Date().toISOString(),

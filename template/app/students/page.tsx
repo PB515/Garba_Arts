@@ -8,6 +8,7 @@ import { LocationBatchSelect } from './location-batch-select';
 import { SourceField } from './source-field';
 import { StatusDot } from './status-dot';
 import { StatusQuickSet } from './status-quick-set';
+import { orIlikeValue } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -47,7 +48,10 @@ export default async function InquiryPage({
   if (params.location) query = query.eq('location_id', params.location);
   if (params.batch) query = query.eq('batch_id', params.batch);
   if (params.status) query = query.eq('status', params.status);
-  if (params.q) query = query.or(`name.ilike.%${params.q}%,phone_number.ilike.%${params.q}%`);
+  if (params.q) {
+    const v = orIlikeValue(params.q);
+    query = query.or(`name.ilike.${v},phone_number.ilike.${v}`);
+  }
 
   const { data: students, error } = await query;
 
@@ -72,8 +76,8 @@ export default async function InquiryPage({
               defaultLocationId={!superAdmin ? locations[0]?.id : ''}
               className={FIELD_CLASS}
             />
-            <input name="fee_total" type="number" step="0.01" placeholder="Fee (once decided)" className={FIELD_CLASS} />
-            <input name="demo_fee_amount" type="number" step="0.01" placeholder="Demo fee (small, optional)" className={FIELD_CLASS} />
+            <input name="fee_total" type="number" step="0.01" min="0" placeholder="Fee (once decided)" className={FIELD_CLASS} />
+            <input name="demo_fee_amount" type="number" step="0.01" min="0" placeholder="Demo fee (small, optional)" className={FIELD_CLASS} />
             <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
             <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Add

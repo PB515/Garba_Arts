@@ -40,6 +40,8 @@ export default async function DashboardPage() {
     headcountByLocation.set(s.location_id, (headcountByLocation.get(s.location_id) ?? 0) + 1);
   }
 
+  const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
+
   const cards = [
     { label: 'Total leads', value: all.length },
     { label: 'Inquiries this month', value: inquiriesThisMonth },
@@ -85,7 +87,9 @@ export default async function DashboardPage() {
               <ul className="space-y-1 text-sm">
                 {batches.map((b) => (
                   <li key={b.id} className="flex justify-between">
-                    <span>{b.name}</span>
+                    <span>
+                      {locationName.get(b.location_id)} · {b.name}
+                    </span>
                     <span>{headcountByBatch.get(b.id) ?? 0}</span>
                   </li>
                 ))}

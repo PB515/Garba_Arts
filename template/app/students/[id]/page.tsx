@@ -133,15 +133,15 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
               </label>
               <label className="text-sm">
                 Fee total
-                <input name="fee_total" type="number" step="0.01" defaultValue={student.fee_total ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+                <input name="fee_total" type="number" step="0.01" min="0" defaultValue={student.fee_total ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">
                 Demo fee amount
-                <input name="demo_fee_amount" type="number" step="0.01" defaultValue={student.demo_fee_amount ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+                <input name="demo_fee_amount" type="number" step="0.01" min="0" defaultValue={student.demo_fee_amount ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">
                 Demo fee paid
-                <input name="demo_fee_paid" type="number" step="0.01" defaultValue={student.demo_fee_paid ?? 0} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
+                <input name="demo_fee_paid" type="number" step="0.01" min="0" defaultValue={student.demo_fee_paid ?? 0} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
             </div>
             <label className="block text-sm">
