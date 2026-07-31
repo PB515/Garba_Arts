@@ -73,7 +73,11 @@ export default async function JoinedStudentsPage({
   return (
     <AppShell active="joined" userEmail={user?.email}>
       <div className="space-y-6">
-        <form className="mb-4 flex flex-wrap gap-3" method="get">
+        {/* Keyed on the current filters so a soft-navigation (e.g. "Reset
+            filters") remounts the form - otherwise uncontrolled fields like
+            the checkbox/selects keep their stale DOM state after the URL
+            (and the data) has already changed. */}
+        <form key={JSON.stringify(params)} className="mb-4 flex flex-wrap gap-3" method="get">
           <input
             name="q"
             defaultValue={params.q ?? ''}
@@ -100,6 +104,9 @@ export default async function JoinedStudentsPage({
           <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
             Filter
           </button>
+          <Link href="/students/joined" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            Reset filters
+          </Link>
           {superAdmin ? (
             <a href="/api/export/students" className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
               Export CSV
