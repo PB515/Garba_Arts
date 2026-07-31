@@ -60,7 +60,7 @@ export default async function InquiryPage({
         <section className="rounded-[var(--radius)] border border-border p-4">
           <h2 className="mb-3 text-sm font-semibold">Add inquiry / lead</h2>
           <form action={createStudent} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <input name="name" placeholder="Name" required className={FIELD_CLASS} />
+            <input name="name" placeholder="Full Name" required className={FIELD_CLASS} />
             <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
             <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
             <SourceField className={FIELD_CLASS} />

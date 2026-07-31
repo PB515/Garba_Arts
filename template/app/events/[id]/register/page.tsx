@@ -66,7 +66,7 @@ export default async function EventRegisterPage({
 
             <div className="space-y-1">
               <label htmlFor="registrant_name" className="text-sm font-medium">
-                Your name
+                Your full name
               </label>
               <input id="registrant_name" name="registrant_name" required className={FIELD_CLASS} />
             </div>

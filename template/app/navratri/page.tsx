@@ -52,7 +52,7 @@ export default async function NavratriPage({
 
               <div className="space-y-1">
                 <label htmlFor="representative_name" className="text-sm font-medium">
-                  Your name
+                  Your full name
                 </label>
                 <input
                   id="representative_name"

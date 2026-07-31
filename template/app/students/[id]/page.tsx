@@ -81,7 +81,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           <form action={boundUpdate} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm">
-                Name
+                Full Name
                 <input name="name" defaultValue={student.name} required className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
               </label>
               <label className="text-sm">

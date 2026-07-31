@@ -126,7 +126,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       <section className="mt-8 rounded-[var(--radius)] border border-border p-4">
         <h2 className="mb-3 text-sm font-semibold">Add registration</h2>
         <form action={boundCreateRegistration} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <input name="registrant_name" placeholder="Registrant name" required className={FIELD_CLASS} />
+          <input name="registrant_name" placeholder="Registrant full name" required className={FIELD_CLASS} />
           <input name="registrant_phone" placeholder="Phone (optional)" className={FIELD_CLASS} />
           <input name="fee_amount" type="number" step="0.01" placeholder="Fee (leave blank if free)" className={FIELD_CLASS} />
           <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
