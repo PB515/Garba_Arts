@@ -35,6 +35,20 @@ export function feeStatusColor(status: FeeStatus): string {
   return COLORS[status];
 }
 
+/** Light row-tint for Not Paid / Half Paid on the Joined tab, so a pending fee is visible without reading the dot. */
+const ROW_TINTS: Partial<Record<FeeStatus, string>> = {
+  not_paid: '#dc262614',
+  half_paid: '#eab30814',
+};
+
+export function feeStatusRowTint(status: FeeStatus): string | undefined {
+  return ROW_TINTS[status];
+}
+
+export function isFeePending(status: FeeStatus): boolean {
+  return status === 'not_paid' || status === 'half_paid';
+}
+
 /** payments.mode -> display label. "cash_upi" is a single split payment logged in one entry, not two rows. */
 export function paymentModeLabel(mode: string): string {
   if (mode === 'cash_upi') return 'Cash + UPI';

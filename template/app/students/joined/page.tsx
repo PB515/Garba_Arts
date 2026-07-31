@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { LocationBatchSelect } from '../location-batch-select';
-import { feeStatus, feeStatusLabel, feeStatusColor } from '@/lib/fee-status';
+import { feeStatus, feeStatusLabel, feeStatusColor, feeStatusRowTint, isFeePending } from '@/lib/fee-status';
 import { StatusDot } from '../status-dot';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
@@ -12,7 +12,7 @@ const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text
 export default async function JoinedStudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; location?: string; batch?: string }>;
+  searchParams: Promise<{ q?: string; location?: string; batch?: string; pending?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -61,6 +61,15 @@ export default async function JoinedStudentsPage({
   const locationName = new Map((allLocations ?? []).map((l) => [l.id, l.name]));
   const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
 
+  // Fee status is derived (payments aren't in the initial query), so the
+  // "pending fees only" filter is applied here in JS, after computing it -
+  // not as a SQL filter.
+  let rows = (students ?? []).map((s) => ({
+    student: s,
+    status: feeStatus(s.fee_total, paidByStudent.get(s.id) ?? 0),
+  }));
+  if (params.pending === '1') rows = rows.filter((r) => isFeePending(r.status));
+
   return (
     <AppShell active="joined" userEmail={user?.email}>
       <div className="space-y-6">
@@ -84,6 +93,10 @@ export default async function JoinedStudentsPage({
               className={FIELD_CLASS}
             />
           ) : null}
+          <label className="flex items-center gap-2 rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            <input type="checkbox" name="pending" value="1" defaultChecked={params.pending === '1'} />
+            Pending fees only
+          </label>
           <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
             Filter
           </button>
@@ -96,10 +109,14 @@ export default async function JoinedStudentsPage({
 
         {error ? (
           <p className="text-sm text-red-600">Could not load: {error.message}</p>
-        ) : !students?.length ? (
+        ) : !rows.length ? (
           <EmptyState
-            title="No joined students yet"
-            message="Mark someone green in the Inquiry list, then finish their details here."
+            title={params.pending === '1' ? 'No pending fees' : 'No joined students yet'}
+            message={
+              params.pending === '1'
+                ? 'Nobody joined is currently Not Paid or Half Paid.'
+                : 'Mark someone green in the Inquiry list, then finish their details here.'
+            }
           />
         ) : (
           <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
@@ -114,12 +131,14 @@ export default async function JoinedStudentsPage({
                 </tr>
               </thead>
               <tbody>
-                {students.map((s) => {
-                  const paid = paidByStudent.get(s.id) ?? 0;
-                  const status = feeStatus(s.fee_total, paid);
+                {rows.map(({ student: s, status }) => {
                   const missingDetails = !s.batch_id || s.fee_total === null;
                   return (
-                    <tr key={s.id} className="border-t border-border">
+                    <tr
+                      key={s.id}
+                      className="border-t border-border"
+                      style={{ backgroundColor: feeStatusRowTint(status) }}
+                    >
                       <td className="p-3">
                         <Link href={`/students/${s.id}`} className="font-medium underline">
                           {s.name}
