@@ -6,7 +6,7 @@ import { LocationBatchSelect } from '../location-batch-select';
 import { feeStatus, feeStatusLabel, feeStatusColor, feeStatusRowTint, isFeePending } from '@/lib/fee-status';
 import { StatusDot } from '../status-dot';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
-import { orIlikeValue } from '@/lib/form';
+import { orIlikeValue, buildQueryString } from '@/lib/form';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -112,7 +112,16 @@ export default async function JoinedStudentsPage({
             Reset filters
           </Link>
           {superAdmin ? (
-            <a href="/api/export/students" className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            <a
+              href={`/api/export/students${buildQueryString({
+                q: params.q,
+                location: params.location,
+                batch: params.batch,
+                pending: params.pending,
+                status: 'joined',
+              })}`}
+              className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+            >
               Export CSV
             </a>
           ) : null}

@@ -8,7 +8,7 @@ import { LocationBatchSelect } from './location-batch-select';
 import { SourceField } from './source-field';
 import { StatusDot } from './status-dot';
 import { StatusQuickSet } from './status-quick-set';
-import { orIlikeValue } from '@/lib/form';
+import { orIlikeValue, buildQueryString } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -117,6 +117,19 @@ export default async function InquiryPage({
             <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
               Filter
             </button>
+            {superAdmin ? (
+              <a
+                href={`/api/export/students${buildQueryString({
+                  q: params.q,
+                  location: params.location,
+                  batch: params.batch,
+                  status: params.status,
+                })}`}
+                className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+              >
+                Export CSV
+              </a>
+            ) : null}
           </form>
 
           {error ? (

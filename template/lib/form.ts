@@ -43,6 +43,16 @@ export function orIlikeValue(term: string): string {
   return value;
 }
 
+/** Builds a `?a=1&b=2` query string, skipping empty/undefined values - used to carry a page's current filters into its CSV export link. */
+export function buildQueryString(params: Record<string, string | undefined>): string {
+  const usp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) usp.set(key, value);
+  }
+  const s = usp.toString();
+  return s ? `?${s}` : '';
+}
+
 /** Parses a textarea of one-name-per-line into trimmed, non-empty names. Used for event attendee lists. */
 export function parseNameList(formData: FormData, key: string): string[] {
   const raw = formData.get(key);

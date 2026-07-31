@@ -6,6 +6,7 @@ import { EmptyState } from '@/lib/patterns/empty-state';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
 import { LocationBatchSelect } from '@/app/students/location-batch-select';
+import { buildQueryString } from '@/lib/form';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -207,6 +208,16 @@ export default async function FeesPage({
             <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
               Filter
             </button>
+            <a
+              href={`/api/export/payments${buildQueryString({
+                location: params.location,
+                batch: params.batch,
+                mode: params.mode,
+              })}`}
+              className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+            >
+              Export CSV
+            </a>
           </form>
 
           {!filteredPayments.length ? (

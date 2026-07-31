@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { orIlikeValue } from '@/lib/form';
+import { feeStatus, isFeePending } from '@/lib/fee-status';
 
 function csvEscape(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   const batch = params.get('batch');
   const status = params.get('status');
   const q = params.get('q');
+  const pending = params.get('pending');
   if (location) query = query.eq('location_id', location);
   if (batch) query = query.eq('batch_id', batch);
   if (status) query = query.eq('status', status);
@@ -88,7 +90,14 @@ export async function GET(request: NextRequest) {
     'Created at',
   ];
 
-  const rows = (students ?? []).map((s) => {
+  // "pending" mirrors the Joined tab's own filter (Not Paid/Half Paid) - fee
+  // status is derived from a separate payments query, so this narrows the
+  // already-fetched student list rather than being a SQL filter.
+  const studentsForExport = pending === '1'
+    ? (students ?? []).filter((s) => isFeePending(feeStatus(s.fee_total, paidByStudent.get(s.id) ?? 0)))
+    : (students ?? []);
+
+  const rows = studentsForExport.map((s) => {
     const paid = paidByStudent.get(s.id) ?? 0;
     const balance = s.fee_total !== null ? s.fee_total - paid : '';
     return [
