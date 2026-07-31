@@ -139,11 +139,15 @@ export async function updateRegistration(
   const registrant_name = str(formData, 'registrant_name');
   if (!registrant_name) throw new Error('Registrant name is required.');
 
+  const location_id = str(formData, 'location_id');
+  if (!location_id) throw new Error('Location is required.');
+
   const { error } = await supabase
     .from('event_registrations')
     .update({
       registrant_name,
       registrant_phone: str(formData, 'registrant_phone'),
+      location_id,
       fee_amount: num(formData, 'fee_amount'),
       amount_paid: num(formData, 'amount_paid') ?? 0,
       remarks: str(formData, 'remarks'),

@@ -7,10 +7,12 @@ import {
   updateEvent,
   permanentlyDeleteEvent,
   createRegistration,
+  updateRegistration,
   archiveRegistration,
   permanentlyDeleteRegistration,
 } from '../actions';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { RegistrationEditRow } from '../registration-edit-row';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -237,30 +239,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 {registrations.map((r) => {
                   const names = attendeesByRegistration.get(r.id) ?? [];
                   return (
-                    <tr key={r.id} className="border-t border-border">
-                      <td className="p-3">{r.registrant_name}</td>
-                      <td className="p-3">{r.registrant_phone ?? '-'}</td>
-                      <td className="p-3">{r.location_id ? (locationName.get(r.location_id) ?? '-') : 'Unattributed'}</td>
-                      <td className="p-3">{names.length ? names.join(', ') : '-'}</td>
-                      <td className="p-3">{1 + names.length}</td>
-                      <td className="p-3">{r.fee_amount !== null ? r.fee_amount.toFixed(2) : '-'}</td>
-                      <td className="p-3">{r.amount_paid.toFixed(2)}</td>
-                      <td className="p-3">{r.remarks ?? '-'}</td>
-                      <td className="p-3">
-                        <div className="flex gap-3">
-                          <form action={archiveRegistration.bind(null, r.id, id)}>
-                            <button type="submit" className="underline">
-                              Archive
-                            </button>
-                          </form>
-                          <form action={permanentlyDeleteRegistration.bind(null, r.id, id)}>
-                            <button type="submit" className="text-red-600 underline">
-                              Remove
-                            </button>
-                          </form>
-                        </div>
-                      </td>
-                    </tr>
+                    <RegistrationEditRow
+                      key={r.id}
+                      registration={{
+                        id: r.id,
+                        registrant_name: r.registrant_name,
+                        registrant_phone: r.registrant_phone,
+                        location_id: r.location_id,
+                        fee_amount: r.fee_amount,
+                        amount_paid: r.amount_paid,
+                        remarks: r.remarks,
+                      }}
+                      attendeeNames={names}
+                      locations={locations}
+                      locationLabel={r.location_id ? (locationName.get(r.location_id) ?? '-') : 'Unattributed'}
+                      updateAction={updateRegistration.bind(null, r.id, id)}
+                      archiveAction={archiveRegistration.bind(null, r.id, id)}
+                      removeAction={permanentlyDeleteRegistration.bind(null, r.id, id)}
+                    />
                   );
                 })}
               </tbody>
