@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { HONEYPOT_FIELD, failsHoneypot, clientIp, rateLimit } from '@/lib/security';
-import { str, parseNameList } from '@/lib/form';
+import { str, parseAttendeeRows } from '@/lib/form';
 
 /**
  * The only public write path for event registrations — same pattern as
@@ -56,11 +56,16 @@ export async function submitEventRegistration(eventId: string, formData: FormDat
     return { error: 'Something went wrong. Please try again.' };
   }
 
-  const attendeeNames = parseNameList(formData, 'attendee_names');
-  if (attendeeNames.length) {
-    await supabase
-      .from('event_attendees')
-      .insert(attendeeNames.map((name) => ({ registration_id: registration.id, name })));
+  const attendeeRows = parseAttendeeRows(formData);
+  if (attendeeRows.length) {
+    await supabase.from('event_attendees').insert(
+      attendeeRows.map((a) => ({
+        registration_id: registration.id,
+        name: a.name,
+        phone_number: a.phone,
+        whatsapp_number: a.whatsapp,
+      }))
+    );
   }
 
   redirect(`/events/${eventId}/register/thank-you`);

@@ -122,19 +122,25 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          phone_number: string | null
           registration_id: string
+          whatsapp_number: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          phone_number?: string | null
           registration_id: string
+          whatsapp_number?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          phone_number?: string | null
           registration_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: [
           {

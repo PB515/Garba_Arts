@@ -13,6 +13,7 @@ import {
 } from '../actions';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { RegistrationEditRow } from '../registration-edit-row';
+import { AttendeeRows } from '../attendee-rows';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -50,13 +51,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const registrationIds = (registrations ?? []).map((r) => r.id);
   const { data: attendees } = registrationIds.length
-    ? await supabase.from('event_attendees').select('id, registration_id, name').in('registration_id', registrationIds)
-    : { data: [] as { id: string; registration_id: string; name: string }[] };
+    ? await supabase
+        .from('event_attendees')
+        .select('id, registration_id, name, phone_number, whatsapp_number')
+        .in('registration_id', registrationIds)
+    : {
+        data: [] as { id: string; registration_id: string; name: string; phone_number: string | null; whatsapp_number: string | null }[],
+      };
 
-  const attendeesByRegistration = new Map<string, string[]>();
+  const attendeesByRegistration = new Map<
+    string,
+    { name: string; phone: string; whatsapp: string }[]
+  >();
   for (const a of attendees ?? []) {
     const list = attendeesByRegistration.get(a.registration_id) ?? [];
-    list.push(a.name);
+    list.push({ name: a.name, phone: a.phone_number ?? '', whatsapp: a.whatsapp_number ?? '' });
     attendeesByRegistration.set(a.registration_id, list);
   }
 
@@ -202,12 +211,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </select>
           <input name="fee_amount" type="number" step="0.01" placeholder="Fee (leave blank if free)" className={FIELD_CLASS} />
           <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
-          <textarea
-            name="attendee_names"
-            placeholder="People coming with them, one name per line (don't include the registrant)"
-            rows={2}
-            className={`col-span-2 sm:col-span-4 ${FIELD_CLASS}`}
-          />
+          <AttendeeRows key={registrations?.length ?? 0} fieldClass={FIELD_CLASS} />
           <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
           <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
             Add
@@ -237,7 +241,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </thead>
               <tbody>
                 {registrations.map((r) => {
-                  const names = attendeesByRegistration.get(r.id) ?? [];
+                  const attendeesForRow = attendeesByRegistration.get(r.id) ?? [];
                   return (
                     <RegistrationEditRow
                       key={r.id}
@@ -250,7 +254,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                         amount_paid: r.amount_paid,
                         remarks: r.remarks,
                       }}
-                      attendeeNames={names}
+                      attendees={attendeesForRow}
                       locations={locations}
                       locationLabel={r.location_id ? (locationName.get(r.location_id) ?? '-') : 'Unattributed'}
                       updateAction={updateRegistration.bind(null, r.id, id)}

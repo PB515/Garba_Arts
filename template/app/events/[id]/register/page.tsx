@@ -3,6 +3,7 @@ import { site } from '@/lib/site';
 import { HONEYPOT_FIELD } from '@/lib/security';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { submitEventRegistration } from './actions';
+import { AttendeeRows } from '../../attendee-rows';
 
 const FIELD_CLASS = 'w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -78,12 +79,7 @@ export default async function EventRegisterPage({
               <input id="registrant_phone" name="registrant_phone" className={FIELD_CLASS} />
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="attendee_names" className="text-sm font-medium">
-                Anyone coming with you? (one name per line, don&apos;t include yourself)
-              </label>
-              <textarea id="attendee_names" name="attendee_names" rows={3} className={FIELD_CLASS} />
-            </div>
+            <AttendeeRows fieldClass={FIELD_CLASS} />
 
             <div className="space-y-1">
               <label htmlFor="remarks" className="text-sm font-medium">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AttendeeRows } from './attendee-rows';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -19,6 +20,12 @@ interface Registration {
   remarks: string | null;
 }
 
+interface Attendee {
+  name: string;
+  phone: string;
+  whatsapp: string;
+}
+
 /**
  * A registration row that toggles into an inline edit form. Registrations
  * previously could only be fixed by delete-and-redo (Archive/Remove) - the
@@ -27,7 +34,7 @@ interface Registration {
  */
 export function RegistrationEditRow({
   registration,
-  attendeeNames,
+  attendees,
   locations,
   locationLabel,
   updateAction,
@@ -35,7 +42,7 @@ export function RegistrationEditRow({
   removeAction,
 }: {
   registration: Registration;
-  attendeeNames: string[];
+  attendees: Attendee[];
   locations: Loc[];
   locationLabel: string;
   updateAction: (formData: FormData) => Promise<void>;
@@ -50,8 +57,8 @@ export function RegistrationEditRow({
         <td className="p-3">{registration.registrant_name}</td>
         <td className="p-3">{registration.registrant_phone ?? '-'}</td>
         <td className="p-3">{locationLabel}</td>
-        <td className="p-3">{attendeeNames.length ? attendeeNames.join(', ') : '-'}</td>
-        <td className="p-3">{1 + attendeeNames.length}</td>
+        <td className="p-3">{attendees.length ? attendees.map((a) => a.name).join(', ') : '-'}</td>
+        <td className="p-3">{1 + attendees.length}</td>
         <td className="p-3">{registration.fee_amount !== null ? registration.fee_amount.toFixed(2) : '-'}</td>
         <td className="p-3">{registration.amount_paid.toFixed(2)}</td>
         <td className="p-3">{registration.remarks ?? '-'}</td>
@@ -127,13 +134,7 @@ export function RegistrationEditRow({
             placeholder="Amount paid"
             className={FIELD_CLASS}
           />
-          <textarea
-            name="attendee_names"
-            defaultValue={attendeeNames.join('\n')}
-            placeholder="People coming with them, one name per line (don't include the registrant)"
-            rows={2}
-            className={`col-span-2 sm:col-span-4 ${FIELD_CLASS}`}
-          />
+          <AttendeeRows fieldClass={FIELD_CLASS} initialAttendees={attendees} />
           <input
             name="remarks"
             defaultValue={registration.remarks ?? ''}

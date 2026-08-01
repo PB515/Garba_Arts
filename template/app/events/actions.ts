@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
-import { requireUser, str, num, parseNameList } from '@/lib/form';
+import { requireUser, str, num, parseAttendeeRows } from '@/lib/form';
 
 export async function createEvent(formData: FormData): Promise<void> {
   const { supabase, user } = await requireUser();
@@ -118,11 +118,16 @@ export async function createRegistration(eventId: string, formData: FormData): P
 
   if (error) throw new Error(`Could not add registration: ${error.message}`);
 
-  const attendeeNames = parseNameList(formData, 'attendee_names');
-  if (attendeeNames.length) {
-    const { error: attendeesError } = await supabase
-      .from('event_attendees')
-      .insert(attendeeNames.map((name) => ({ registration_id: registration.id, name })));
+  const attendeeRows = parseAttendeeRows(formData);
+  if (attendeeRows.length) {
+    const { error: attendeesError } = await supabase.from('event_attendees').insert(
+      attendeeRows.map((a) => ({
+        registration_id: registration.id,
+        name: a.name,
+        phone_number: a.phone,
+        whatsapp_number: a.whatsapp,
+      }))
+    );
     if (attendeesError) throw new Error(`Could not add attendees: ${attendeesError.message}`);
   }
 
@@ -159,15 +164,20 @@ export async function updateRegistration(
   if (error) throw new Error(`Could not save registration: ${error.message}`);
 
   // Replace the attendee list wholesale rather than diffing - simpler and
-  // matches the textarea's own "this is the current full list" mental model.
+  // matches the dynamic-rows form's own "this is the current full list" mental model.
   const { error: clearError } = await supabase.from('event_attendees').delete().eq('registration_id', registrationId);
   if (clearError) throw new Error(`Could not update attendees: ${clearError.message}`);
 
-  const attendeeNames = parseNameList(formData, 'attendee_names');
-  if (attendeeNames.length) {
-    const { error: attendeesError } = await supabase
-      .from('event_attendees')
-      .insert(attendeeNames.map((name) => ({ registration_id: registrationId, name })));
+  const attendeeRows = parseAttendeeRows(formData);
+  if (attendeeRows.length) {
+    const { error: attendeesError } = await supabase.from('event_attendees').insert(
+      attendeeRows.map((a) => ({
+        registration_id: registrationId,
+        name: a.name,
+        phone_number: a.phone,
+        whatsapp_number: a.whatsapp,
+      }))
+    );
     if (attendeesError) throw new Error(`Could not update attendees: ${attendeesError.message}`);
   }
 

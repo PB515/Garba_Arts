@@ -53,12 +53,32 @@ export function buildQueryString(params: Record<string, string | undefined>): st
   return s ? `?${s}` : '';
 }
 
-/** Parses a textarea of one-name-per-line into trimmed, non-empty names. Used for event attendee lists. */
-export function parseNameList(formData: FormData, key: string): string[] {
-  const raw = formData.get(key);
-  if (typeof raw !== 'string') return [];
-  return raw
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+export interface AttendeeInput {
+  name: string;
+  phone: string | null;
+  whatsapp: string | null;
+}
+
+/**
+ * Reads dynamic attendee rows (name/phone/WhatsApp triples) produced by the
+ * AttendeeRows client component - name+phone+whatsapp_{i} fields, count
+ * given by attendee_count. Replaces the old one-name-per-line textarea
+ * parser: a name-only list can't capture phone/WhatsApp per attendee, which
+ * the owner asked for directly ("name and whatsapp number"). Name is
+ * required per row (a row with no name is dropped); phone/WhatsApp stay
+ * optional, same as the registrant's own phone field.
+ */
+export function parseAttendeeRows(formData: FormData): AttendeeInput[] {
+  const count = num(formData, 'attendee_count') ?? 0;
+  const rows: AttendeeInput[] = [];
+  for (let i = 0; i < count; i++) {
+    const name = str(formData, `attendee_name_${i}`);
+    if (!name) continue;
+    rows.push({
+      name,
+      phone: str(formData, `attendee_phone_${i}`),
+      whatsapp: str(formData, `attendee_whatsapp_${i}`),
+    });
+  }
+  return rows;
 }
