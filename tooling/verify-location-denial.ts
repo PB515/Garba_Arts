@@ -207,6 +207,60 @@ async function main(): Promise<void> {
   await superAdmin.from('event_registrations').delete().eq('event_id', seededEvent.id);
   await superAdmin.from('events').delete().eq('id', seededEvent.id);
 
+  console.log(c.dim('\nLead tier: an unclaimed (location_id null) student is visible to BOTH admins (0017)...'));
+  const { data: superAdminUser2 } = await superAdmin.auth.getUser();
+  if (!superAdminUser2.user) throw new Error('could not resolve the signed-in super_admin user');
+  const { data: seededLead, error: seedLeadError } = await superAdmin
+    .from('students')
+    .insert({
+      name: '[VERIFY] unclaimed lead',
+      phone_number: '0000000001',
+      location_id: null,
+      created_by: superAdminUser2.user.id,
+    })
+    .select('id')
+    .single();
+  if (!seededLead) throw new Error(`could not seed a test lead: ${seedLeadError?.message}`);
+
+  const { data: aliyaSeesLead } = await aliya.from('students').select('id').eq('id', seededLead.id);
+  check('Aliya admin sees the unclaimed lead', (aliyaSeesLead?.length ?? 0) === 1, JSON.stringify(aliyaSeesLead));
+
+  const { data: sportsclubSeesLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
+  check(
+    'Sportsclub admin ALSO sees the same unclaimed lead',
+    (sportsclubSeesLead?.length ?? 0) === 1,
+    JSON.stringify(sportsclubSeesLead)
+  );
+
+  console.log(c.dim('\nclaiming a lead into the wrong location is rejected by RLS...'));
+  const wrongClaim = await aliya.from('students').update({ location_id: sportsclubLoc.id }).eq('id', seededLead.id);
+  // With a `with check` clause and no matching row, PostgREST returns success
+  // with 0 rows affected rather than an explicit error — the real proof is
+  // that the location_id did NOT change, checked via super_admin next.
+  const { data: afterWrongClaim } = await superAdmin.from('students').select('location_id').eq('id', seededLead.id).single();
+  check(
+    "Aliya admin's attempt to claim the lead into Sportsclub left it unclaimed",
+    afterWrongClaim?.location_id === null,
+    `wrongClaim.error=${wrongClaim.error?.message ?? 'none'}, location_id after=${afterWrongClaim?.location_id}`
+  );
+
+  console.log(c.dim('\nclaiming a lead into your OWN location succeeds, then it disappears from the other admin...'));
+  const rightClaim = await aliya.from('students').update({ location_id: aliyaLoc.id }).eq('id', seededLead.id);
+  check('Aliya admin can claim the lead into Aliya', rightClaim.error === null, rightClaim.error?.message);
+
+  const { data: sportsclubSeesClaimedLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
+  check(
+    'Sportsclub admin no longer sees it once claimed by Aliya',
+    (sportsclubSeesClaimedLead?.length ?? 0) === 0,
+    JSON.stringify(sportsclubSeesClaimedLead)
+  );
+
+  const { data: aliyaStillSeesClaimedLead } = await aliya.from('students').select('id').eq('id', seededLead.id);
+  check('Aliya admin still sees the lead it just claimed', (aliyaStillSeesClaimedLead?.length ?? 0) === 1);
+
+  console.log(c.dim('\ncleaning up the seeded lead via super_admin...'));
+  await superAdmin.from('students').delete().eq('id', seededLead.id);
+
   if (failures > 0) {
     console.log(c.red(`\n✗ ${failures} check(s) FAILED — location scoping is not correctly enforced`));
     process.exit(1);

@@ -160,11 +160,11 @@ export default async function JoinedStudentsPage({
                       style={{ backgroundColor: feeStatusRowTint(status) }}
                     >
                       <td className="p-3">
-                        <Link href={`/students/${s.id}`} className="font-medium underline">
+                        <Link href={`/students/${s.id}?from=joined`} className="font-medium underline">
                           {s.name}
                         </Link>
                         {missingDetails ? (
-                          <Link href={`/students/${s.id}`} className="ml-2 text-xs text-accent underline">
+                          <Link href={`/students/${s.id}?from=joined`} className="ml-2 text-xs text-accent underline">
                             Complete details
                           </Link>
                         ) : null}

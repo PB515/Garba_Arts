@@ -39,8 +39,15 @@ export async function GET(request: NextRequest) {
   const status = params.get('status');
   const q = params.get('q');
   const pending = params.get('pending');
-  if (location) query = query.eq('location_id', location);
-  if (batch) query = query.eq('batch_id', batch);
+  const unclaimed = params.get('unclaimed');
+  if (unclaimed === '1') {
+    // The Lead tab's export - location/batch filters are meaningless for a
+    // row that by definition has neither set yet.
+    query = query.is('location_id', null);
+  } else {
+    if (location) query = query.eq('location_id', location);
+    if (batch) query = query.eq('batch_id', batch);
+  }
   if (status) query = query.eq('status', status);
   if (q) {
     const v = orIlikeValue(q);

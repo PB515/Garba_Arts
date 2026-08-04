@@ -8,7 +8,7 @@ export async function AppShell({
   userEmail,
   children,
 }: {
-  active: 'dashboard' | 'inquiry' | 'joined' | 'fees' | 'events' | 'navratri';
+  active: 'dashboard' | 'leads' | 'inquiry' | 'joined' | 'fees' | 'events' | 'navratri';
   userEmail: string | undefined;
   children: React.ReactNode;
 }) {
@@ -26,6 +26,9 @@ export async function AppShell({
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/dashboard" className={active === 'dashboard' ? 'font-semibold' : 'text-muted'}>
               Dashboard
+            </Link>
+            <Link href="/students/leads" className={active === 'leads' ? 'font-semibold' : 'text-muted'}>
+              Lead
             </Link>
             <Link href="/students" className={active === 'inquiry' ? 'font-semibold' : 'text-muted'}>
               Inquiry

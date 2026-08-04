@@ -18,8 +18,21 @@ import { PaymentModeFields } from '../payment-mode-fields';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
 
-export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const BACK_TARGETS = {
+  leads: { href: '/students/leads', active: 'leads' as const, label: 'Back to leads' },
+  inquiry: { href: '/students', active: 'inquiry' as const, label: 'Back to inquiry' },
+  joined: { href: '/students/joined', active: 'joined' as const, label: 'Back to joined' },
+};
+
+export default async function StudentDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const { id } = await params;
+  const { from } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -42,6 +55,12 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (error || !student) notFound();
 
+  // Fall back to inferring from the record itself (a leadless location means
+  // it can only have come from the Leads tab) when `from` is missing or
+  // unrecognized - e.g. a direct/bookmarked URL, same as the old behavior.
+  const inferredKey = !student.location_id ? 'leads' : student.status === 'joined' ? 'joined' : 'inquiry';
+  const backTarget = BACK_TARGETS[from as keyof typeof BACK_TARGETS] ?? BACK_TARGETS[inferredKey];
+
   const superAdmin = isSuperAdmin(staffRole);
   const locations = superAdmin
     ? (allLocations ?? [])
@@ -57,10 +76,10 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const balance = student.fee_total !== null ? student.fee_total - totalPaid : null;
 
   return (
-    <AppShell active={student.status === 'joined' ? 'joined' : 'inquiry'} userEmail={user?.email}>
+    <AppShell active={backTarget.active} userEmail={user?.email}>
       <div className="mb-4">
-        <Link href="/students" className="text-sm underline">
-          ← Back to students
+        <Link href={backTarget.href} className="text-sm underline">
+          ← {backTarget.label}
         </Link>
       </div>
 

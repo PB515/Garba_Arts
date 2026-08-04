@@ -28,6 +28,15 @@ export function SourceField({
         <option value="instagram">Instagram</option>
         <option value="referral">Referral</option>
         <option value="walk-in">Walk-in</option>
+        <option value="society">Society</option>
+        <option value="corporate">Corporate</option>
+        {/* Placeholder: owner said 4 more categories exist but hasn't given
+            the real list yet. Loudly marked so these never get mistaken for
+            confirmed values; swap in the real ones, don't just relabel these. */}
+        <option value="placeholder-1">[Placeholder source 1, TBD]</option>
+        <option value="placeholder-2">[Placeholder source 2, TBD]</option>
+        <option value="placeholder-3">[Placeholder source 3, TBD]</option>
+        <option value="placeholder-4">[Placeholder source 4, TBD]</option>
         <option value="other">Other</option>
       </select>
       {source ? (

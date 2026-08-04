@@ -87,6 +87,31 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
   revalidatePath(`/students/${studentId}`);
 }
 
+/**
+ * Claims an unclaimed Lead (location_id null) into a specific location — one
+ * click from the Lead list, no need to open the full edit page. Batch is
+ * deliberately left unset here; the record shows up on Inquiry afterward
+ * with the same "Complete details" nudge already used for anyone missing
+ * batch/fee, rather than forcing a batch pick inline on the claim button.
+ *
+ * The UI only ever offers a location_admin their own location's button, but
+ * RLS is the real guard: the `with check` clause on the location-scoped
+ * policy rejects a claim into any location that isn't the caller's own
+ * (or a super_admin), so this can't be spoofed by a raw request either.
+ */
+export async function claimLead(studentId: string, locationId: string): Promise<void> {
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from('students')
+    .update({ location_id: locationId, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq('id', studentId);
+  if (error) throw new Error(`Could not claim: ${error.message}`);
+
+  revalidatePath('/students/leads');
+  revalidatePath('/students');
+}
+
 /** Fast one-click status change from the Inquiry list — no need to open the detail page just to reclassify. */
 export async function setStudentStatus(studentId: string, status: string): Promise<void> {
   const { supabase, user } = await requireUser();

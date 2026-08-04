@@ -43,6 +43,7 @@ export default async function InquiryPage({
     .from('students')
     .select('id, name, phone_number, status, location_id, batch_id, remarks, deleted_at')
     .is('deleted_at', null)
+    .not('location_id', 'is', null) // an unclaimed Lead lives on its own tab, not here
     .order('created_at', { ascending: false });
 
   if (params.location) query = query.eq('location_id', params.location);
@@ -157,7 +158,7 @@ export default async function InquiryPage({
                         <StatusDot color={statusColor(s.status)} label={statusLabel(s.status)} />
                       </td>
                       <td className="p-3">
-                        <Link href={`/students/${s.id}`} className="font-medium underline">
+                        <Link href={`/students/${s.id}?from=inquiry`} className="font-medium underline">
                           {s.name}
                         </Link>
                       </td>
