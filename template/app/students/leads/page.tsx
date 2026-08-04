@@ -7,7 +7,7 @@ import { STATUS_OPTIONS, statusLabel, statusColor } from '@/lib/status';
 import { StatusDot } from '../status-dot';
 import { StatusQuickSet } from '../status-quick-set';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
-import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -34,13 +34,15 @@ export default async function LeadsPage({
 
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
+  const triageAdmin = isTriageAdmin(staffRole);
 
   const { data: allLocations } = await supabase.from('locations').select('id, name').order('name');
 
   // A location_admin only ever gets their own claim button — RLS enforces
   // this is more than cosmetic (see claimLead's comment), but no reason to
-  // even show a button that would just be rejected.
-  const claimableLocations = superAdmin
+  // even show a button that would just be rejected. super_admin and
+  // triage_admin can claim into either location.
+  const claimableLocations = superAdmin || triageAdmin
     ? (allLocations ?? [])
     : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
 

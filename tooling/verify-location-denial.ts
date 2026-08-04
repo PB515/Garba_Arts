@@ -61,6 +61,7 @@ async function main(): Promise<void> {
   const aliya = await signedInAs('aliya-admin@thegarbaarts.local', PASSWORD);
   const sportsclub = await signedInAs('sportsclub-admin@thegarbaarts.local', PASSWORD);
   const superAdmin = await signedInAs('owner@thegarbaarts.local', PASSWORD);
+  const triage = await signedInAs('triage-admin@thegarbaarts.local', PASSWORD);
 
   const { data: locations } = await superAdmin.from('locations').select('id, name');
   const aliyaLoc = locations?.find((l) => l.name === 'Aliya');
@@ -232,20 +233,17 @@ async function main(): Promise<void> {
     JSON.stringify(sportsclubSeesLead)
   );
 
-  console.log(c.dim('\nclaiming a lead into the wrong location is rejected by RLS...'));
-  const wrongClaim = await aliya.from('students').update({ location_id: sportsclubLoc.id }).eq('id', seededLead.id);
-  // With a `with check` clause and no matching row, PostgREST returns success
-  // with 0 rows affected rather than an explicit error — the real proof is
-  // that the location_id did NOT change, checked via super_admin next.
+  console.log(c.dim('\nclaiming a lead into the wrong location is rejected by claim_lead() (0020)...'));
+  const wrongClaim = await aliya.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: sportsclubLoc.id });
   const { data: afterWrongClaim } = await superAdmin.from('students').select('location_id').eq('id', seededLead.id).single();
   check(
-    "Aliya admin's attempt to claim the lead into Sportsclub left it unclaimed",
-    afterWrongClaim?.location_id === null,
+    "Aliya admin's attempt to claim the lead into Sportsclub is rejected, and it stays unclaimed",
+    wrongClaim.error !== null && afterWrongClaim?.location_id === null,
     `wrongClaim.error=${wrongClaim.error?.message ?? 'none'}, location_id after=${afterWrongClaim?.location_id}`
   );
 
   console.log(c.dim('\nclaiming a lead into your OWN location succeeds, then it disappears from the other admin...'));
-  const rightClaim = await aliya.from('students').update({ location_id: aliyaLoc.id }).eq('id', seededLead.id);
+  const rightClaim = await aliya.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: aliyaLoc.id });
   check('Aliya admin can claim the lead into Aliya', rightClaim.error === null, rightClaim.error?.message);
 
   const { data: sportsclubSeesClaimedLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
@@ -258,8 +256,98 @@ async function main(): Promise<void> {
   const { data: aliyaStillSeesClaimedLead } = await aliya.from('students').select('id').eq('id', seededLead.id);
   check('Aliya admin still sees the lead it just claimed', (aliyaStillSeesClaimedLead?.length ?? 0) === 1);
 
-  console.log(c.dim('\ncleaning up the seeded lead via super_admin...'));
+  console.log(c.dim('\ntriage_admin: sees the shared pool, can claim into EITHER location, access ends there (0018/0019)...'));
+  const { data: freshLead, error: freshLeadError } = await superAdmin
+    .from('students')
+    .insert({
+      name: '[VERIFY] triage_admin lead',
+      phone_number: '0000000002',
+      location_id: null,
+      created_by: superAdminUser2.user.id,
+    })
+    .select('id')
+    .single();
+  if (!freshLead) throw new Error(`could not seed a fresh test lead: ${freshLeadError?.message}`);
+
+  const { data: triageSeesFreshLead } = await triage.from('students').select('id').eq('id', freshLead.id);
+  check('triage_admin sees a freshly-unclaimed lead', (triageSeesFreshLead?.length ?? 0) === 1);
+
+  const triageClaimAliya = await triage.rpc('claim_lead', { p_student_id: freshLead.id, p_location_id: aliyaLoc.id });
+  check('triage_admin can claim a lead into Aliya', triageClaimAliya.error === null, triageClaimAliya.error?.message);
+
+  const { data: triageSeesAfterAliyaClaimNoLongerVisible } = await triage
+    .from('students')
+    .select('id')
+    .eq('id', freshLead.id);
+  check(
+    "triage_admin's own access ends the moment it's claimed — can't see it anymore",
+    (triageSeesAfterAliyaClaimNoLongerVisible?.length ?? 0) === 0,
+    JSON.stringify(triageSeesAfterAliyaClaimNoLongerVisible)
+  );
+
+  if (aliyaOwn?.[0]?.id) {
+    const { data: triageSeesRealAliyaStudent } = await triage
+      .from('students')
+      .select('id')
+      .eq('id', aliyaOwn[0].id);
+    check(
+      'triage_admin sees 0 real (already-located) students in general, not just the one it claimed',
+      (triageSeesRealAliyaStudent?.length ?? 0) === 0,
+      JSON.stringify(triageSeesRealAliyaStudent)
+    );
+  }
+
+  // A second fresh lead, to prove triage_admin can also claim into
+  // Sportsclub — unlike a location_admin, who's locked to one location.
+  const { data: freshLead2, error: freshLead2Error } = await superAdmin
+    .from('students')
+    .insert({
+      name: '[VERIFY] triage_admin lead 2',
+      phone_number: '0000000003',
+      location_id: null,
+      created_by: superAdminUser2.user.id,
+    })
+    .select('id')
+    .single();
+  if (!freshLead2) throw new Error(`could not seed a second fresh test lead: ${freshLead2Error?.message}`);
+
+  const triageClaimSportsclub = await triage.rpc('claim_lead', {
+    p_student_id: freshLead2.id,
+    p_location_id: sportsclubLoc.id,
+  });
+  check(
+    'triage_admin can ALSO claim a lead into Sportsclub (not locked to one location, unlike a location_admin)',
+    triageClaimSportsclub.error === null,
+    triageClaimSportsclub.error?.message
+  );
+  const { data: afterTriageSportsclubClaim } = await superAdmin
+    .from('students')
+    .select('location_id')
+    .eq('id', freshLead2.id)
+    .single();
+  check(
+    'the Sportsclub claim actually took effect',
+    afterTriageSportsclubClaim?.location_id === sportsclubLoc.id
+  );
+
+  console.log(c.dim('\njoined_headcount_by_batch(): aggregate-only, gated to super_admin/triage_admin (0018)...'));
+  const { data: triageHeadcount } = await triage.rpc('joined_headcount_by_batch');
+  check('triage_admin gets real aggregate headcount data', (triageHeadcount?.length ?? 0) > 0, JSON.stringify(triageHeadcount));
+
+  const { data: superHeadcount } = await superAdmin.rpc('joined_headcount_by_batch');
+  check('super_admin also gets real aggregate headcount data', (superHeadcount?.length ?? 0) > 0);
+
+  const { data: aliyaHeadcount } = await aliya.rpc('joined_headcount_by_batch');
+  check(
+    'a plain location_admin gets 0 rows from the aggregate function (not authorized, no error, just empty)',
+    (aliyaHeadcount?.length ?? 0) === 0,
+    JSON.stringify(aliyaHeadcount)
+  );
+
+  console.log(c.dim('\ncleaning up the seeded leads via super_admin...'));
   await superAdmin.from('students').delete().eq('id', seededLead.id);
+  await superAdmin.from('students').delete().eq('id', freshLead.id);
+  await superAdmin.from('students').delete().eq('id', freshLead2.id);
 
   if (failures > 0) {
     console.log(c.red(`\n✗ ${failures} check(s) FAILED — location scoping is not correctly enforced`));

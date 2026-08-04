@@ -10,6 +10,7 @@
  *
  *   tsx tooling/create-account.ts <email> <password> super_admin
  *   tsx tooling/create-account.ts <email> <password> location_admin "Aliya"
+ *   tsx tooling/create-account.ts <email> <password> triage_admin
  *
  * Safe to re-run against an email that already has an account — it looks
  * the user up instead of failing, and (re-)assigns the role, so this also
@@ -39,8 +40,8 @@ async function main(): Promise<void> {
     console.error('       tsx tooling/create-account.ts <email> <password> location_admin "<location name>"');
     process.exit(1);
   }
-  if (role !== 'super_admin' && role !== 'location_admin') {
-    console.error(`✗ role must be "super_admin" or "location_admin", got "${role}"`);
+  if (role !== 'super_admin' && role !== 'location_admin' && role !== 'triage_admin') {
+    console.error(`✗ role must be "super_admin", "location_admin", or "triage_admin", got "${role}"`);
     process.exit(1);
   }
   if (role === 'location_admin' && !locationName) {

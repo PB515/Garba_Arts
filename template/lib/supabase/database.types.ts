@@ -503,7 +503,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_lead: {
+        Args: { p_location_id: string; p_student_id: string }
+        Returns: undefined
+      }
       is_super_admin: { Args: never; Returns: boolean }
+      is_triage_admin: { Args: never; Returns: boolean }
+      joined_headcount_by_batch: {
+        Args: never
+        Returns: {
+          batch_id: string
+          headcount: number
+          location_id: string
+        }[]
+      }
       keepalive: { Args: never; Returns: string }
       staff_location_id: { Args: never; Returns: string }
     }

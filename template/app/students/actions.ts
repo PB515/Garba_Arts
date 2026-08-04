@@ -94,18 +94,19 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
  * with the same "Complete details" nudge already used for anyone missing
  * batch/fee, rather than forcing a batch pick inline on the claim button.
  *
- * The UI only ever offers a location_admin their own location's button, but
- * RLS is the real guard: the `with check` clause on the location-scoped
- * policy rejects a claim into any location that isn't the caller's own
- * (or a super_admin), so this can't be spoofed by a raw request either.
+ * Routed through the claim_lead() SECURITY DEFINER function (0020) rather
+ * than a raw update — a plain RLS `with check` branch turned out not to work
+ * here (Postgres also requires the proposed new row to satisfy `using` for
+ * this policy shape, which a location_admin's own-location claim happens to
+ * pass by coincidence but triage_admin's arbitrary-location claim never
+ * does). The function does its own explicit authorization check, so the UI
+ * only offering a location_admin their own location's button is still just
+ * a convenience, not the real guard.
  */
 export async function claimLead(studentId: string, locationId: string): Promise<void> {
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
 
-  const { error } = await supabase
-    .from('students')
-    .update({ location_id: locationId, updated_by: user.id, updated_at: new Date().toISOString() })
-    .eq('id', studentId);
+  const { error } = await supabase.rpc('claim_lead', { p_student_id: studentId, p_location_id: locationId });
   if (error) throw new Error(`Could not claim: ${error.message}`);
 
   revalidatePath('/students/leads');

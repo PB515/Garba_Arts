@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
-import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -9,6 +9,11 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
+  const triageAdmin = isTriageAdmin(staffRole);
+
+  if (triageAdmin) {
+    return <TriageDashboard userEmail={user?.email} />;
+  }
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -110,6 +115,73 @@ export default async function DashboardPage() {
               </ul>
             )}
           </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+/**
+ * triage_admin's whole reason for existing: steer an undecided caller
+ * toward whichever batch is actually empty. Sourced from
+ * joined_headcount_by_batch() (0018) - a SECURITY DEFINER function
+ * returning aggregate counts only, not row-level access to other
+ * locations' students. No stat cards here (Total leads/Ask again/Dropped
+ * would all just show a nonsensical small number, since RLS only lets this
+ * role see unclaimed leads directly) - headcount is the entire point.
+ */
+async function TriageDashboard({ userEmail }: { userEmail: string | undefined }) {
+  const supabase = await createClient();
+
+  const [{ data: locations }, { data: batches }, { data: headcounts }] = await Promise.all([
+    supabase.from('locations').select('id, name').order('name'),
+    supabase.from('batches').select('id, name, location_id').order('name'),
+    supabase.rpc('joined_headcount_by_batch'),
+  ]);
+
+  const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
+  const byLocation = new Map<string, number>();
+  const byBatch = new Map<string, number>();
+  for (const h of headcounts ?? []) {
+    if (h.location_id) byLocation.set(h.location_id, (byLocation.get(h.location_id) ?? 0) + h.headcount);
+    if (h.batch_id) byBatch.set(h.batch_id, (byBatch.get(h.batch_id) ?? 0) + h.headcount);
+  }
+
+  return (
+    <AppShell active="dashboard" userEmail={userEmail}>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div className="rounded-[var(--radius)] border border-border p-4">
+          <h2 className="mb-3 text-sm font-semibold">Joined headcount by location</h2>
+          {!locations?.length ? (
+            <p className="text-sm text-muted">No locations yet.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {locations.map((l) => (
+                <li key={l.id} className="flex justify-between">
+                  <span>{l.name}</span>
+                  <span>{byLocation.get(l.id) ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-[var(--radius)] border border-border p-4">
+          <h2 className="mb-3 text-sm font-semibold">Joined headcount by batch</h2>
+          {!batches?.length ? (
+            <p className="text-sm text-muted">No batches yet.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {batches.map((b) => (
+                <li key={b.id} className="flex justify-between">
+                  <span>
+                    {locationName.get(b.location_id)} · {b.name}
+                  </span>
+                  <span>{byBatch.get(b.id) ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </AppShell>

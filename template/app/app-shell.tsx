@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { site } from '@/lib/site';
 import { signOut } from '@/app/login/actions';
-import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
 
 export async function AppShell({
   active,
@@ -17,6 +17,7 @@ export async function AppShell({
   // enforce it. This just avoids showing a link that would 403.
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
+  const triageAdmin = isTriageAdmin(staffRole);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -30,23 +31,30 @@ export async function AppShell({
             <Link href="/students/leads" className={active === 'leads' ? 'font-semibold' : 'text-muted'}>
               Lead
             </Link>
-            <Link href="/students" className={active === 'inquiry' ? 'font-semibold' : 'text-muted'}>
-              Inquiry
-            </Link>
-            <Link href="/students/joined" className={active === 'joined' ? 'font-semibold' : 'text-muted'}>
-              Joined
-            </Link>
-            {superAdmin ? (
-              <Link href="/fees" className={active === 'fees' ? 'font-semibold' : 'text-muted'}>
-                Fees
-              </Link>
+            {/* triage_admin's access ends at the claim — nothing below this
+                point is reachable for them anyway (RLS), so don't show a
+                link that would just land on an empty/403'd page. */}
+            {!triageAdmin ? (
+              <>
+                <Link href="/students" className={active === 'inquiry' ? 'font-semibold' : 'text-muted'}>
+                  Inquiry
+                </Link>
+                <Link href="/students/joined" className={active === 'joined' ? 'font-semibold' : 'text-muted'}>
+                  Joined
+                </Link>
+                {superAdmin ? (
+                  <Link href="/fees" className={active === 'fees' ? 'font-semibold' : 'text-muted'}>
+                    Fees
+                  </Link>
+                ) : null}
+                <Link href="/events" className={active === 'events' ? 'font-semibold' : 'text-muted'}>
+                  Events
+                </Link>
+                <Link href="/navratri-admin" className={active === 'navratri' ? 'font-semibold' : 'text-muted'}>
+                  Navratri
+                </Link>
+              </>
             ) : null}
-            <Link href="/events" className={active === 'events' ? 'font-semibold' : 'text-muted'}>
-              Events
-            </Link>
-            <Link href="/navratri-admin" className={active === 'navratri' ? 'font-semibold' : 'text-muted'}>
-              Navratri
-            </Link>
           </nav>
         </div>
         <form action={signOut} className="flex items-center gap-3">

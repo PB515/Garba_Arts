@@ -7,7 +7,7 @@
  */
 import { createClient } from '@/lib/supabase/server';
 
-export type StaffRole = 'super_admin' | 'location_admin';
+export type StaffRole = 'super_admin' | 'location_admin' | 'triage_admin';
 
 export interface StaffRoleInfo {
   role: StaffRole;
@@ -34,4 +34,9 @@ export async function getStaffRole(): Promise<StaffRoleInfo | null> {
 
 export function isSuperAdmin(info: StaffRoleInfo | null): boolean {
   return info?.role === 'super_admin';
+}
+
+/** Triage-only: sees the shared Lead pool + cross-location headcounts, nothing else. */
+export function isTriageAdmin(info: StaffRoleInfo | null): boolean {
+  return info?.role === 'triage_admin';
 }
