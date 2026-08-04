@@ -1,11 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const staffRole = await getStaffRole();
+  const superAdmin = isSuperAdmin(staffRole);
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
@@ -42,6 +45,17 @@ export default async function DashboardPage() {
 
   const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
 
+  // locations/batches are unscoped lookup tables (decision #27) — RLS won't
+  // hide the other location's rows here, so a location_admin's dashboard
+  // must filter them itself, the same way the add-form's Location field
+  // is locked rather than relying on RLS to reject a bad submission.
+  const visibleLocations = superAdmin
+    ? (locations ?? [])
+    : (locations ?? []).filter((l) => l.id === staffRole?.locationId);
+  const visibleBatches = superAdmin
+    ? (batches ?? [])
+    : (batches ?? []).filter((b) => b.location_id === staffRole?.locationId);
+
   const cards = [
     { label: 'Total leads', value: all.length },
     { label: 'Inquiries this month', value: inquiriesThisMonth },
@@ -65,11 +79,11 @@ export default async function DashboardPage() {
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="rounded-[var(--radius)] border border-border p-4">
             <h2 className="mb-3 text-sm font-semibold">Joined headcount by location</h2>
-            {!locations?.length ? (
+            {!visibleLocations.length ? (
               <p className="text-sm text-muted">No locations yet.</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {locations.map((l) => (
+                {visibleLocations.map((l) => (
                   <li key={l.id} className="flex justify-between">
                     <span>{l.name}</span>
                     <span>{headcountByLocation.get(l.id) ?? 0}</span>
@@ -81,11 +95,11 @@ export default async function DashboardPage() {
 
           <div className="rounded-[var(--radius)] border border-border p-4">
             <h2 className="mb-3 text-sm font-semibold">Joined headcount by batch</h2>
-            {!batches?.length ? (
+            {!visibleBatches.length ? (
               <p className="text-sm text-muted">No batches yet.</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {batches.map((b) => (
+                {visibleBatches.map((b) => (
                   <li key={b.id} className="flex justify-between">
                     <span>
                       {locationName.get(b.location_id)} · {b.name}
