@@ -13,8 +13,13 @@ export default function manifest(): MetadataRoute.Manifest {
     description: site.description,
     start_url: '/',
     display: 'standalone',
-    background_color: '#ffffff', // TODO: match your --background token
-    theme_color: '#ffffff', // TODO: match your brand
+    // Matches globals.css's current --background/--accent values exactly -
+    // both are still the loudly-marked PLACEHOLDER magenta palette (this
+    // app has never had its own token pass). Update both together whenever
+    // real branding lands; a manifest with stale colors relative to the
+    // app itself is worse than the current placeholder-matching state.
+    background_color: '#fff5fb',
+    theme_color: '#d6008c',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

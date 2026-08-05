@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 import { site } from "@/lib/site";
+import { RegisterSW } from "@/lib/pwa/register-sw";
 
 export const metadata: Metadata = {
   title: site.name,
@@ -30,7 +31,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <RegisterSW />
+      </body>
     </html>
   );
 }
