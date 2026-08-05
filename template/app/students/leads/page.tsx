@@ -13,7 +13,7 @@ import { ClaimLeadButtons } from './claim-lead-buttons';
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
 /**
- * The shared, unclaimed pool — a caller who hasn't decided Aliya vs.
+ * The shared, unclaimed pool — a caller who hasn't decided Aalay vs.
  * Sportsclub yet. Nobody owns these (RLS's `location_id is null` branch,
  * decision #51), so every location_admin and super_admin sees the exact
  * same list here, not just their own location's slice. One-click "Claim

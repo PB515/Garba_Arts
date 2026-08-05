@@ -9,7 +9,7 @@
  * Every account needs a role (0008_roles_and_location_scoping.sql):
  *
  *   tsx tooling/create-account.ts <email> <password> super_admin
- *   tsx tooling/create-account.ts <email> <password> location_admin "Aliya"
+ *   tsx tooling/create-account.ts <email> <password> location_admin "Aalay"
  *   tsx tooling/create-account.ts <email> <password> triage_admin
  *
  * Safe to re-run against an email that already has an account — it looks

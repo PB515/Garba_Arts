@@ -14,7 +14,7 @@ interface Batch {
 
 /**
  * Cascading location -> batch selects. Each location has its own batches
- * (e.g. both "Aliya" and "Sportsclub" have an "8-9 PM" batch), so picking a
+ * (e.g. both "Aalay" and "Sportsclub" have an "8-9 PM" batch), so picking a
  * location filters the batch list down to just its own — no need to
  * qualify batch names with the location once this is in place.
  */
@@ -42,7 +42,7 @@ export function LocationBatchSelect({
   const [locationId, setLocationId] = useState(defaultLocationId);
   const [batchId, setBatchId] = useState(defaultBatchId);
 
-  // Batch names repeat across locations (e.g. both Aliya and Sportsclub have
+  // Batch names repeat across locations (e.g. both Aalay and Sportsclub have
   // an "8-9 PM" batch), so showing every batch merged together before a
   // location is picked is genuinely ambiguous, not just untidy — you can't
   // tell which "8-9 PM" you'd be selecting. Empty until a location is

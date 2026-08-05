@@ -8,7 +8,7 @@
 
 ### Current state
 
-CSV export already exists today, but only in one place: a button on the **Joined** tab, pointing at `/api/export/students`. It's restricted to `super_admin` two separate ways — the button itself is only rendered if `isSuperAdmin(staffRole)`, and the API route independently re-checks the same thing before doing anything, so a `location_admin` can't reach it just by typing the URL (confirmed live in the last audit: a signed-in Aliya admin hitting the route directly got a 403 JSON error, not a page).
+CSV export already exists today, but only in one place: a button on the **Joined** tab, pointing at `/api/export/students`. It's restricted to `super_admin` two separate ways — the button itself is only rendered if `isSuperAdmin(staffRole)`, and the API route independently re-checks the same thing before doing anything, so a `location_admin` can't reach it just by typing the URL (confirmed live in the last audit: a signed-in Aalay admin hitting the route directly got a 403 JSON error, not a page).
 
 The route exports **one row per student**: Name, Phone, WhatsApp, Source, Source detail, Status, Location, Batch, Inquiry date, Fee total, Paid, Balance, Demo fee amount, Demo fee paid, Remarks, Created at. It already reads four filter params from the URL — `location`, `batch`, `status`, `q` — and narrows the export to match.
 
@@ -118,7 +118,7 @@ Note: once the event-attendee redesign (dynamic name/phone/WhatsApp rows, still 
 
 Round 1: "now we will talk about event and that is split and can be seen by combined by admin only" — read back as: `location_admin` sees only their own location's slice of an event's registrations; `super_admin` sees the combined picture across both. Same pattern already shipped for the Fees tab (decision #28: individual visible to the location's admin, combined restricted to the owner).
 
-Round 2, clarifying which of the two shapes from the original fork this actually is: **"event can occur at a party plot or some other place — location where event is occurring does not matter. how much student has registered from aliya and from sportsclub matters."** This confirms **Option 2** cleanly: the event's own venue is irrelevant to the app (it's not one of the two dance-class locations, so `events` itself does not need a `location_id`). What matters is attributing each *registration* to Aliya or Sportsclub, so both locations can register for the same event and each admin sees their own location's count while the owner sees both.
+Round 2, clarifying which of the two shapes from the original fork this actually is: **"event can occur at a party plot or some other place — location where event is occurring does not matter. how much student has registered from aalay and from sportsclub matters."** This confirms **Option 2** cleanly: the event's own venue is irrelevant to the app (it's not one of the two dance-class locations, so `events` itself does not need a `location_id`). What matters is attributing each *registration* to Aalay or Sportsclub, so both locations can register for the same event and each admin sees their own location's count while the owner sees both.
 
 ### What this actually requires — a real gap, not just an RLS policy
 
@@ -133,7 +133,7 @@ Concretely, if this is built:
 ### The one question still genuinely open
 
 The **public self-registration page** (`/events/[id]/register`) is filled out by someone with no login and no known location. Two different answers are both plausible, and they lead to different builds:
-- The public form also asks "Aliya or Sportsclub?" — meaning public registrants are still assumed to belong to one of the two dance-class locations.
+- The public form also asks "Aalay or Sportsclub?" — meaning public registrants are still assumed to belong to one of the two dance-class locations.
 - Public self-registration is for people outside the two-location system entirely (general community, walk-ins to a public event), and only *admin-entered* registrations carry a location — public registrations would need some explicit "unattributed" handling (a third bucket, or simply excluded from the by-location breakdown and only counted in the combined total).
 
 **Not deciding this here — flagging it as the one piece still needed before this is buildable**, since it changes whether the public form's fields change at all.
@@ -181,7 +181,7 @@ File changes:
 
 ### 5c. Events location-scoping (Section 4, made concrete)
 
-**Proposed default for the one open question**, so this is buildable — flagged clearly for you to override, not assumed silently: `location_id` is **nullable** at the database level (so a public self-registration can stay unattributed), but **required at the app level for admin-entered registrations** (the "Add registration" form on `/events/[id]` won't submit without it, same as how `location_id` is effectively required on the student add form today). The **public registration form gets no new field** — public registrants stay unattributed (`location_id = null`), counted in the event's overall total but not in either location's specific breakdown, since a stranger filling out a public link generally isn't a known Aliya-or-Sportsclub student. If that's wrong — e.g. you do want the public form to ask — say so and this plan changes at 5c-iii and 5c-iv below.
+**Proposed default for the one open question**, so this is buildable — flagged clearly for you to override, not assumed silently: `location_id` is **nullable** at the database level (so a public self-registration can stay unattributed), but **required at the app level for admin-entered registrations** (the "Add registration" form on `/events/[id]` won't submit without it, same as how `location_id` is effectively required on the student add form today). The **public registration form gets no new field** — public registrants stay unattributed (`location_id = null`), counted in the event's overall total but not in either location's specific breakdown, since a stranger filling out a public link generally isn't a known Aalay-or-Sportsclub student. If that's wrong — e.g. you do want the public form to ask — say so and this plan changes at 5c-iii and 5c-iv below.
 
 **i. Migration**, `db/migrations/0015_event_registration_location_scoping.sql`:
 
@@ -189,7 +189,7 @@ File changes:
 -- 0015_event_registration_location_scoping — registrations (not events) get
 -- a location; the event's own venue is irrelevant to scoping (owner: "event
 -- can occur at a party plot or some other place... how much student has
--- registered from aliya and from sportsclub matters"). Nullable: a public
+-- registered from aalay and from sportsclub matters"). Nullable: a public
 -- self-registration has no known location and stays unattributed, counted
 -- in the combined total only, never in a location_admin's own view. Admin-
 -- entered registrations are required to set one at the app level.
@@ -243,7 +243,7 @@ alter table event_registrations drop column location_id;
 
 A `location_id = staff_location_id()` comparison is `false`/unknown for any row where `location_id` is `null` (standard SQL null-comparison behavior), so unattributed public registrations are automatically invisible to every `location_admin` and visible only to `super_admin` — no extra clause needed to get that behavior, it falls out of the comparison itself. This is also why the public write path (which uses the service-role client and bypasses RLS entirely, same as `/navratri`) doesn't interact with this policy at all — it was never subject to it.
 
-**ii. `tooling/verify-location-denial.ts`** — extend with new checks proving the above live: an Aliya-created registration is invisible to the Sportsclub admin and vice versa, a `super_admin` sees both, and a null-location (simulated public) registration is invisible to both location admins but visible to `super_admin`. Same rigor as every other location-scoping change so far — proven with real signed-in test accounts, not just trusted from the policy text.
+**ii. `tooling/verify-location-denial.ts`** — extend with new checks proving the above live: an Aalay-created registration is invisible to the Sportsclub admin and vice versa, a `super_admin` sees both, and a null-location (simulated public) registration is invisible to both location admins but visible to `super_admin`. Same rigor as every other location-scoping change so far — proven with real signed-in test accounts, not just trusted from the policy text.
 
 **iii. `app/events/actions.ts`** — `createRegistration` (and `updateRegistration`, if 5b ships in the same pass) gains a `location_id` param, required: `if (!location_id) throw new Error('Location is required.')`, passed straight through to the insert/update.
 

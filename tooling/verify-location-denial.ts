@@ -58,19 +58,19 @@ const PASSWORD = 'TempPass123!';
 async function main(): Promise<void> {
   loadEnv();
 
-  const aliya = await signedInAs('aliya-admin@thegarbaarts.local', PASSWORD);
+  const aalay = await signedInAs('aalay-admin@thegarbaarts.local', PASSWORD);
   const sportsclub = await signedInAs('sportsclub-admin@thegarbaarts.local', PASSWORD);
   const superAdmin = await signedInAs('owner@thegarbaarts.local', PASSWORD);
   const triage = await signedInAs('triage-admin@thegarbaarts.local', PASSWORD);
 
   const { data: locations } = await superAdmin.from('locations').select('id, name');
-  const aliyaLoc = locations?.find((l) => l.name === 'Aliya');
+  const aalayLoc = locations?.find((l) => l.name === 'Aalay');
   const sportsclubLoc = locations?.find((l) => l.name === 'Sportsclub');
-  if (!aliyaLoc || !sportsclubLoc) throw new Error('expected both Aliya and Sportsclub locations to exist');
+  if (!aalayLoc || !sportsclubLoc) throw new Error('expected both Aalay and Sportsclub locations to exist');
 
   console.log(c.dim('positive controls (each admin sees their OWN location)...'));
-  const { data: aliyaOwn } = await aliya.from('students').select('id').eq('location_id', aliyaLoc.id).limit(1);
-  check('Aliya admin can see Aliya students', (aliyaOwn?.length ?? 0) > 0, 'expected at least 1 row from demo seed');
+  const { data: aalayOwn } = await aalay.from('students').select('id').eq('location_id', aalayLoc.id).limit(1);
+  check('Aalay admin can see Aalay students', (aalayOwn?.length ?? 0) > 0, 'expected at least 1 row from demo seed');
 
   const { data: sportsclubOwn } = await sportsclub
     .from('students')
@@ -80,17 +80,17 @@ async function main(): Promise<void> {
   check('Sportsclub admin can see Sportsclub students', (sportsclubOwn?.length ?? 0) > 0, 'expected at least 1 row from demo seed');
 
   console.log(c.dim('\ncross-location denial (the actual proof)...'));
-  const { data: aliyaSeesSportsclub } = await aliya.from('students').select('id').eq('location_id', sportsclubLoc.id);
-  check('Aliya admin sees 0 Sportsclub students', (aliyaSeesSportsclub?.length ?? 0) === 0, JSON.stringify(aliyaSeesSportsclub));
+  const { data: aalaySeesSportsclub } = await aalay.from('students').select('id').eq('location_id', sportsclubLoc.id);
+  check('Aalay admin sees 0 Sportsclub students', (aalaySeesSportsclub?.length ?? 0) === 0, JSON.stringify(aalaySeesSportsclub));
 
-  const { data: sportsclubSeesAliya } = await sportsclub.from('students').select('id').eq('location_id', aliyaLoc.id);
-  check('Sportsclub admin sees 0 Aliya students', (sportsclubSeesAliya?.length ?? 0) === 0, JSON.stringify(sportsclubSeesAliya));
+  const { data: sportsclubSeesAalay } = await sportsclub.from('students').select('id').eq('location_id', aalayLoc.id);
+  check('Sportsclub admin sees 0 Aalay students', (sportsclubSeesAalay?.length ?? 0) === 0, JSON.stringify(sportsclubSeesAalay));
 
   console.log(c.dim('\ncross-location write denial...'));
-  const insertAttempt = await aliya
+  const insertAttempt = await aalay
     .from('students')
     .insert({ name: 'cross-location-should-fail', phone_number: '0000000000', location_id: sportsclubLoc.id });
-  check('Aliya admin cannot insert a Sportsclub-location student', insertAttempt.error !== null, 'insert succeeded — RLS hole');
+  check('Aalay admin cannot insert a Sportsclub-location student', insertAttempt.error !== null, 'insert succeeded — RLS hole');
 
   console.log(c.dim('\npayments follow the same scoping (via the parent student)...'));
   const { data: sportsclubStudentForPayment } = await superAdmin
@@ -100,25 +100,25 @@ async function main(): Promise<void> {
     .limit(1)
     .single();
   if (sportsclubStudentForPayment) {
-    const { data: aliyaSeesPayment } = await aliya
+    const { data: aalaySeesPayment } = await aalay
       .from('payments')
       .select('id')
       .eq('student_id', sportsclubStudentForPayment.id);
     check(
-      'Aliya admin sees 0 payments for a Sportsclub student',
-      (aliyaSeesPayment?.length ?? 0) === 0,
-      JSON.stringify(aliyaSeesPayment)
+      'Aalay admin sees 0 payments for a Sportsclub student',
+      (aalaySeesPayment?.length ?? 0) === 0,
+      JSON.stringify(aalaySeesPayment)
     );
   }
 
   console.log(c.dim('\nsuper_admin sees both locations merged...'));
-  const { data: superAliya } = await superAdmin.from('students').select('id').eq('location_id', aliyaLoc.id).limit(1);
+  const { data: superAalay } = await superAdmin.from('students').select('id').eq('location_id', aalayLoc.id).limit(1);
   const { data: superSportsclub } = await superAdmin
     .from('students')
     .select('id')
     .eq('location_id', sportsclubLoc.id)
     .limit(1);
-  check('super_admin sees Aliya students', (superAliya?.length ?? 0) > 0);
+  check('super_admin sees Aalay students', (superAalay?.length ?? 0) > 0);
   check('super_admin sees Sportsclub students', (superSportsclub?.length ?? 0) > 0);
 
   console.log(c.dim('\nevent_registrations follow the same location scoping (0015)...'));
@@ -133,9 +133,9 @@ async function main(): Promise<void> {
     .single();
   if (!seededEvent) throw new Error(`could not seed a test event: ${seedEventError?.message}`);
 
-  const { data: aliyaReg } = await superAdmin
+  const { data: aalayReg } = await superAdmin
     .from('event_registrations')
-    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] Aliya registrant', location_id: aliyaLoc.id })
+    .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] Aalay registrant', location_id: aalayLoc.id })
     .select('id')
     .single();
   const { data: sportsclubReg } = await superAdmin
@@ -148,63 +148,63 @@ async function main(): Promise<void> {
     .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] unattributed (public-style) registrant', location_id: null })
     .select('id')
     .single();
-  if (!aliyaReg || !sportsclubReg || !unattributedReg) throw new Error('could not seed test registrations');
+  if (!aalayReg || !sportsclubReg || !unattributedReg) throw new Error('could not seed test registrations');
 
-  const { data: aliyaSeesOwnReg } = await aliya.from('event_registrations').select('id').eq('id', aliyaReg.id);
-  check('Aliya admin sees its own location\'s registration', (aliyaSeesOwnReg?.length ?? 0) === 1);
+  const { data: aalaySeesOwnReg } = await aalay.from('event_registrations').select('id').eq('id', aalayReg.id);
+  check('Aalay admin sees its own location\'s registration', (aalaySeesOwnReg?.length ?? 0) === 1);
 
-  const { data: aliyaSeesSportsclubReg } = await aliya.from('event_registrations').select('id').eq('id', sportsclubReg.id);
-  check('Aliya admin sees 0 Sportsclub registrations', (aliyaSeesSportsclubReg?.length ?? 0) === 0, JSON.stringify(aliyaSeesSportsclubReg));
+  const { data: aalaySeesSportsclubReg } = await aalay.from('event_registrations').select('id').eq('id', sportsclubReg.id);
+  check('Aalay admin sees 0 Sportsclub registrations', (aalaySeesSportsclubReg?.length ?? 0) === 0, JSON.stringify(aalaySeesSportsclubReg));
 
-  const { data: sportsclubSeesAliyaReg } = await sportsclub.from('event_registrations').select('id').eq('id', aliyaReg.id);
-  check('Sportsclub admin sees 0 Aliya registrations', (sportsclubSeesAliyaReg?.length ?? 0) === 0, JSON.stringify(sportsclubSeesAliyaReg));
+  const { data: sportsclubSeesAalayReg } = await sportsclub.from('event_registrations').select('id').eq('id', aalayReg.id);
+  check('Sportsclub admin sees 0 Aalay registrations', (sportsclubSeesAalayReg?.length ?? 0) === 0, JSON.stringify(sportsclubSeesAalayReg));
 
-  const { data: aliyaSeesUnattributed } = await aliya.from('event_registrations').select('id').eq('id', unattributedReg.id);
+  const { data: aalaySeesUnattributed } = await aalay.from('event_registrations').select('id').eq('id', unattributedReg.id);
   const { data: sportsclubSeesUnattributed } = await sportsclub.from('event_registrations').select('id').eq('id', unattributedReg.id);
   check(
     'Neither location admin sees an unattributed (public-style) registration',
-    (aliyaSeesUnattributed?.length ?? 0) === 0 && (sportsclubSeesUnattributed?.length ?? 0) === 0,
-    JSON.stringify({ aliyaSeesUnattributed, sportsclubSeesUnattributed })
+    (aalaySeesUnattributed?.length ?? 0) === 0 && (sportsclubSeesUnattributed?.length ?? 0) === 0,
+    JSON.stringify({ aalaySeesUnattributed, sportsclubSeesUnattributed })
   );
 
   const { data: superSeesAll } = await superAdmin
     .from('event_registrations')
     .select('id')
-    .in('id', [aliyaReg.id, sportsclubReg.id, unattributedReg.id]);
+    .in('id', [aalayReg.id, sportsclubReg.id, unattributedReg.id]);
   check('super_admin sees all 3 (both locations + unattributed)', (superSeesAll?.length ?? 0) === 3);
 
-  const crossLocationRegInsert = await aliya
+  const crossLocationRegInsert = await aalay
     .from('event_registrations')
     .insert({ event_id: seededEvent.id, registrant_name: '[VERIFY] should fail', location_id: sportsclubLoc.id });
   check(
-    'Aliya admin cannot insert a Sportsclub-location registration',
+    'Aalay admin cannot insert a Sportsclub-location registration',
     crossLocationRegInsert.error !== null,
     'insert succeeded — RLS hole'
   );
 
   console.log(c.dim('\nevent_attendees inherit scoping from their parent registration...'));
-  const { data: attendeeUnderAliyaReg } = await superAdmin
+  const { data: attendeeUnderAalayReg } = await superAdmin
     .from('event_attendees')
-    .insert({ registration_id: aliyaReg.id, name: '[VERIFY] attendee under Aliya reg' })
+    .insert({ registration_id: aalayReg.id, name: '[VERIFY] attendee under Aalay reg' })
     .select('id')
     .single();
-  if (attendeeUnderAliyaReg) {
-    const { data: aliyaSeesAttendee } = await aliya.from('event_attendees').select('id').eq('id', attendeeUnderAliyaReg.id);
-    check('Aliya admin sees an attendee under its own registration', (aliyaSeesAttendee?.length ?? 0) === 1);
+  if (attendeeUnderAalayReg) {
+    const { data: aalaySeesAttendee } = await aalay.from('event_attendees').select('id').eq('id', attendeeUnderAalayReg.id);
+    check('Aalay admin sees an attendee under its own registration', (aalaySeesAttendee?.length ?? 0) === 1);
 
     const { data: sportsclubSeesAttendee } = await sportsclub
       .from('event_attendees')
       .select('id')
-      .eq('id', attendeeUnderAliyaReg.id);
+      .eq('id', attendeeUnderAalayReg.id);
     check(
-      'Sportsclub admin sees 0 attendees under an Aliya registration',
+      'Sportsclub admin sees 0 attendees under an Aalay registration',
       (sportsclubSeesAttendee?.length ?? 0) === 0,
       JSON.stringify(sportsclubSeesAttendee)
     );
   }
 
   console.log(c.dim('\ncleaning up seeded event-registration rows via super_admin...'));
-  await superAdmin.from('event_attendees').delete().eq('registration_id', aliyaReg.id);
+  await superAdmin.from('event_attendees').delete().eq('registration_id', aalayReg.id);
   await superAdmin.from('event_registrations').delete().eq('event_id', seededEvent.id);
   await superAdmin.from('events').delete().eq('id', seededEvent.id);
 
@@ -223,8 +223,8 @@ async function main(): Promise<void> {
     .single();
   if (!seededLead) throw new Error(`could not seed a test lead: ${seedLeadError?.message}`);
 
-  const { data: aliyaSeesLead } = await aliya.from('students').select('id').eq('id', seededLead.id);
-  check('Aliya admin sees the unclaimed lead', (aliyaSeesLead?.length ?? 0) === 1, JSON.stringify(aliyaSeesLead));
+  const { data: aalaySeesLead } = await aalay.from('students').select('id').eq('id', seededLead.id);
+  check('Aalay admin sees the unclaimed lead', (aalaySeesLead?.length ?? 0) === 1, JSON.stringify(aalaySeesLead));
 
   const { data: sportsclubSeesLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
   check(
@@ -234,27 +234,27 @@ async function main(): Promise<void> {
   );
 
   console.log(c.dim('\nclaiming a lead into the wrong location is rejected by claim_lead() (0020)...'));
-  const wrongClaim = await aliya.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: sportsclubLoc.id });
+  const wrongClaim = await aalay.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: sportsclubLoc.id });
   const { data: afterWrongClaim } = await superAdmin.from('students').select('location_id').eq('id', seededLead.id).single();
   check(
-    "Aliya admin's attempt to claim the lead into Sportsclub is rejected, and it stays unclaimed",
+    "Aalay admin's attempt to claim the lead into Sportsclub is rejected, and it stays unclaimed",
     wrongClaim.error !== null && afterWrongClaim?.location_id === null,
     `wrongClaim.error=${wrongClaim.error?.message ?? 'none'}, location_id after=${afterWrongClaim?.location_id}`
   );
 
   console.log(c.dim('\nclaiming a lead into your OWN location succeeds, then it disappears from the other admin...'));
-  const rightClaim = await aliya.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: aliyaLoc.id });
-  check('Aliya admin can claim the lead into Aliya', rightClaim.error === null, rightClaim.error?.message);
+  const rightClaim = await aalay.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: aalayLoc.id });
+  check('Aalay admin can claim the lead into Aalay', rightClaim.error === null, rightClaim.error?.message);
 
   const { data: sportsclubSeesClaimedLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
   check(
-    'Sportsclub admin no longer sees it once claimed by Aliya',
+    'Sportsclub admin no longer sees it once claimed by Aalay',
     (sportsclubSeesClaimedLead?.length ?? 0) === 0,
     JSON.stringify(sportsclubSeesClaimedLead)
   );
 
-  const { data: aliyaStillSeesClaimedLead } = await aliya.from('students').select('id').eq('id', seededLead.id);
-  check('Aliya admin still sees the lead it just claimed', (aliyaStillSeesClaimedLead?.length ?? 0) === 1);
+  const { data: aalayStillSeesClaimedLead } = await aalay.from('students').select('id').eq('id', seededLead.id);
+  check('Aalay admin still sees the lead it just claimed', (aalayStillSeesClaimedLead?.length ?? 0) === 1);
 
   console.log(c.dim('\ntriage_admin: sees the shared pool, can claim into EITHER location, access ends there (0018/0019)...'));
   const { data: freshLead, error: freshLeadError } = await superAdmin
@@ -272,28 +272,28 @@ async function main(): Promise<void> {
   const { data: triageSeesFreshLead } = await triage.from('students').select('id').eq('id', freshLead.id);
   check('triage_admin sees a freshly-unclaimed lead', (triageSeesFreshLead?.length ?? 0) === 1);
 
-  const triageClaimAliya = await triage.rpc('claim_lead', { p_student_id: freshLead.id, p_location_id: aliyaLoc.id });
-  check('triage_admin can claim a lead into Aliya', triageClaimAliya.error === null, triageClaimAliya.error?.message);
+  const triageClaimAalay = await triage.rpc('claim_lead', { p_student_id: freshLead.id, p_location_id: aalayLoc.id });
+  check('triage_admin can claim a lead into Aalay', triageClaimAalay.error === null, triageClaimAalay.error?.message);
 
-  const { data: triageSeesAfterAliyaClaimNoLongerVisible } = await triage
+  const { data: triageSeesAfterAalayClaimNoLongerVisible } = await triage
     .from('students')
     .select('id')
     .eq('id', freshLead.id);
   check(
     "triage_admin's own access ends the moment it's claimed — can't see it anymore",
-    (triageSeesAfterAliyaClaimNoLongerVisible?.length ?? 0) === 0,
-    JSON.stringify(triageSeesAfterAliyaClaimNoLongerVisible)
+    (triageSeesAfterAalayClaimNoLongerVisible?.length ?? 0) === 0,
+    JSON.stringify(triageSeesAfterAalayClaimNoLongerVisible)
   );
 
-  if (aliyaOwn?.[0]?.id) {
-    const { data: triageSeesRealAliyaStudent } = await triage
+  if (aalayOwn?.[0]?.id) {
+    const { data: triageSeesRealAalayStudent } = await triage
       .from('students')
       .select('id')
-      .eq('id', aliyaOwn[0].id);
+      .eq('id', aalayOwn[0].id);
     check(
       'triage_admin sees 0 real (already-located) students in general, not just the one it claimed',
-      (triageSeesRealAliyaStudent?.length ?? 0) === 0,
-      JSON.stringify(triageSeesRealAliyaStudent)
+      (triageSeesRealAalayStudent?.length ?? 0) === 0,
+      JSON.stringify(triageSeesRealAalayStudent)
     );
   }
 
@@ -337,11 +337,11 @@ async function main(): Promise<void> {
   const { data: superHeadcount } = await superAdmin.rpc('joined_headcount_by_batch');
   check('super_admin also gets real aggregate headcount data', (superHeadcount?.length ?? 0) > 0);
 
-  const { data: aliyaHeadcount } = await aliya.rpc('joined_headcount_by_batch');
+  const { data: aalayHeadcount } = await aalay.rpc('joined_headcount_by_batch');
   check(
     'a plain location_admin gets 0 rows from the aggregate function (not authorized, no error, just empty)',
-    (aliyaHeadcount?.length ?? 0) === 0,
-    JSON.stringify(aliyaHeadcount)
+    (aalayHeadcount?.length ?? 0) === 0,
+    JSON.stringify(aalayHeadcount)
   );
 
   console.log(c.dim('\ncleaning up the seeded leads via super_admin...'));
