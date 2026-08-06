@@ -426,6 +426,7 @@ export type Database = {
           fee_total: number | null
           id: string
           inquiry_date: string | null
+          is_lead: boolean
           location_id: string | null
           name: string
           phone_number: string
@@ -448,6 +449,7 @@ export type Database = {
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
+          is_lead?: boolean
           location_id?: string | null
           name: string
           phone_number: string
@@ -470,6 +472,7 @@ export type Database = {
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
+          is_lead?: boolean
           location_id?: string | null
           name?: string
           phone_number?: string
@@ -518,6 +521,18 @@ export type Database = {
         }[]
       }
       keepalive: { Args: never; Returns: string }
+      lead_log: {
+        Args: never
+        Returns: {
+          id: string
+          location_id: string
+          name: string
+          phone_number: string
+          remarks: string
+          source: string
+          status: string
+        }[]
+      }
       staff_location_id: { Args: never; Returns: string }
     }
     Enums: {

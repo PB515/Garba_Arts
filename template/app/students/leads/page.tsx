@@ -1,25 +1,34 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { createStudent, claimLead, setStudentStatus } from '../actions';
+import { claimLead } from '../actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { STATUS_OPTIONS, statusLabel, statusColor } from '@/lib/status';
 import { StatusDot } from '../status-dot';
-import { StatusQuickSet } from '../status-quick-set';
-import { SourceField } from '../source-field';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
-import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
+import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
+import { AddLeadForm } from './add-lead-form';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
+// Same light tint styling already used for Joined's fee status - red here
+// means "hasn't moved to Inquiry/Joined yet", not a fee state.
+const UNCLAIMED_TINT = '#dc262614';
+
 /**
- * The shared, unclaimed pool — a caller who hasn't decided Aalay vs.
- * Sportsclub yet. Nobody owns these (RLS's `location_id is null` branch,
- * decision #51), so every location_admin and super_admin sees the exact
- * same list here, not just their own location's slice. One-click "Claim
- * for X" moves a row out of this tab permanently — once claimed it behaves
- * like any normal Inquiry record.
+ * A permanent log of every call that ever came in undecided (decision #61) -
+ * not a shrinking pool. `is_lead = true` marks a row as having originated
+ * here; it stays true forever, so a row never disappears just because it
+ * gets claimed. Red-tinted while still unclaimed (location_id null), white
+ * once claimed. Sourced from `lead_log()` (0023), a SECURITY DEFINER
+ * function - NOT a widened table-level RLS policy - so this shared view is
+ * genuinely scoped to just this list. Clicking through to the full detail
+ * page still respects normal location-scoped RLS: once claimed elsewhere,
+ * only that location's admin and super_admin can open the real record, same
+ * as everywhere else in the app. Any staff member, any role, can claim into
+ * either location - claiming is no longer restricted to a location_admin's
+ * own location (0022).
  */
 export default async function LeadsPage({
   searchParams,
@@ -35,24 +44,11 @@ export default async function LeadsPage({
 
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
-  const triageAdmin = isTriageAdmin(staffRole);
 
   const { data: allLocations } = await supabase.from('locations').select('id, name').order('name');
+  const locationName = new Map((allLocations ?? []).map((l) => [l.id, l.name]));
 
-  // A location_admin only ever gets their own claim button — RLS enforces
-  // this is more than cosmetic (see claimLead's comment), but no reason to
-  // even show a button that would just be rejected. super_admin and
-  // triage_admin can claim into either location.
-  const claimableLocations = superAdmin || triageAdmin
-    ? (allLocations ?? [])
-    : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
-
-  let query = supabase
-    .from('students')
-    .select('id, name, phone_number, status, source, remarks, deleted_at')
-    .is('deleted_at', null)
-    .is('location_id', null)
-    .order('created_at', { ascending: false });
+  let query = supabase.rpc('lead_log');
 
   if (params.status) query = query.eq('status', params.status);
   if (params.q) {
@@ -67,16 +63,12 @@ export default async function LeadsPage({
       <div className="space-y-8">
         <section className="rounded-[var(--radius)] border border-border p-4">
           <h2 className="mb-3 text-sm font-semibold">Add lead</h2>
-          <form action={createStudent} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <input name="name" placeholder="Full Name" required className={FIELD_CLASS} />
-            <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
-            <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
-            <SourceField className={FIELD_CLASS} />
-            <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
-            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
-              Add
-            </button>
-          </form>
+          {/* Keyed on the current lead count: createLead doesn't redirect
+              (staying here is the point, for back-to-back call intake), so
+              this remount is what clears both the fields and any lingering
+              error message after a successful add - same trick already used
+              for the Joined filter form and the event AttendeeRows reset. */}
+          <AddLeadForm key={leads?.length ?? 0} />
         </section>
 
         <section>
@@ -111,7 +103,7 @@ export default async function LeadsPage({
           {error ? (
             <p className="text-sm text-red-600">Could not load: {error.message}</p>
           ) : !leads?.length ? (
-            <EmptyState title="No leads waiting" message="Everyone who's called in has already picked a location." />
+            <EmptyState title="No leads yet" message="Every call that comes in undecided will show up here, permanently." />
           ) : (
             <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
               <table className="w-full text-sm">
@@ -122,13 +114,16 @@ export default async function LeadsPage({
                     <th className="p-3">Phone</th>
                     <th className="p-3">Source</th>
                     <th className="p-3">Remarks</th>
-                    <th className="p-3">Quick set</th>
                     <th className="p-3">Claim</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leads.map((s) => (
-                    <tr key={s.id} className="border-t border-border">
+                    <tr
+                      key={s.id}
+                      className="border-t border-border"
+                      style={{ backgroundColor: s.location_id ? undefined : UNCLAIMED_TINT }}
+                    >
                       <td className="p-3">
                         <StatusDot color={statusColor(s.status)} label={statusLabel(s.status)} />
                       </td>
@@ -141,18 +136,11 @@ export default async function LeadsPage({
                       <td className="p-3">{s.source ?? '-'}</td>
                       <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
                       <td className="p-3">
-                        <StatusQuickSet
-                          studentName={s.name}
-                          options={STATUS_OPTIONS.map((opt) => ({
-                            value: opt,
-                            label: statusLabel(opt),
-                            color: statusColor(opt),
-                            action: setStudentStatus.bind(null, s.id, opt),
-                          }))}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <ClaimLeadButtons locations={claimableLocations} onClaim={claimLead.bind(null, s.id)} />
+                        {s.location_id ? (
+                          <span className="text-muted">{locationName.get(s.location_id) ?? '-'}</span>
+                        ) : (
+                          <ClaimLeadButtons locations={allLocations ?? []} onClaim={claimLead.bind(null, s.id)} />
+                        )}
                       </td>
                     </tr>
                   ))}

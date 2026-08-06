@@ -2,9 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
-import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
 import {
-  updateStudent,
   archiveStudent,
   restoreStudent,
   permanentlyDeleteStudent,
@@ -12,8 +10,7 @@ import {
   archivePayment,
   permanentlyDeletePayment,
 } from '../actions';
-import { LocationBatchSelect } from '../location-batch-select';
-import { SourceField } from '../source-field';
+import { StudentEditForm } from '../student-edit-form';
 import { PaymentModeFields } from '../payment-mode-fields';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
@@ -66,7 +63,6 @@ export default async function StudentDetailPage({
     ? (allLocations ?? [])
     : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
 
-  const boundUpdate = updateStudent.bind(null, id);
   const boundAddPayment = addPayment.bind(null, id);
   const boundArchive = archiveStudent.bind(null, id);
   const boundRestore = restoreStudent.bind(null, id);
@@ -97,80 +93,7 @@ export default async function StudentDetailPage({
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="space-y-3 rounded-[var(--radius)] border border-border p-4">
           <h2 className="text-sm font-semibold">Details</h2>
-          <form action={boundUpdate} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm">
-                Full Name
-                <input name="name" defaultValue={student.name} required className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <label className="text-sm">
-                Phone
-                <input name="phone_number" defaultValue={student.phone_number} required className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <label className="text-sm">
-                WhatsApp (if different)
-                <input name="whatsapp_number" defaultValue={student.whatsapp_number ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <div className="col-span-2 text-sm">
-                Source
-                <div className="mt-1 grid grid-cols-2 gap-3">
-                  <SourceField
-                    defaultSource={student.source ?? ''}
-                    defaultSourceDetail={student.source_detail ?? ''}
-                    className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-              <label className="text-sm">
-                Status
-                <select name="status" defaultValue={student.status ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
-                  <option value="">-</option>
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {statusLabel(s)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="col-span-2 text-sm">
-                Location / Batch
-                <div className="mt-1 grid grid-cols-2 gap-3">
-                  <LocationBatchSelect
-                    locations={locations ?? []}
-                    batches={batches ?? []}
-                    locationField="location_id"
-                    batchField="batch_id"
-                    defaultLocationId={student.location_id ?? ''}
-                    defaultBatchId={student.batch_id ?? ''}
-                    className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-              <label className="text-sm">
-                Inquiry date (when this lead came in)
-                <input name="inquiry_date" type="date" defaultValue={student.inquiry_date ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <label className="text-sm">
-                Fee total
-                <input name="fee_total" type="number" step="0.01" min="0" defaultValue={student.fee_total ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <label className="text-sm">
-                Demo fee amount
-                <input name="demo_fee_amount" type="number" step="0.01" min="0" defaultValue={student.demo_fee_amount ?? ''} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-              <label className="text-sm">
-                Demo fee paid
-                <input name="demo_fee_paid" type="number" step="0.01" min="0" defaultValue={student.demo_fee_paid ?? 0} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              </label>
-            </div>
-            <label className="block text-sm">
-              Remarks
-              <textarea name="remarks" defaultValue={student.remarks ?? ''} rows={3} className="mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-            </label>
-            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
-              Save
-            </button>
-          </form>
+          <StudentEditForm studentId={id} student={student} locations={locations ?? []} batches={batches ?? []} />
 
           <div className="flex gap-4 border-t border-border pt-3 text-sm">
             {!student.deleted_at ? (

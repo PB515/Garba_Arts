@@ -4,19 +4,62 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
 import { requireUser, str, num } from '@/lib/form';
+import type { createClient } from '@/lib/supabase/server';
 
-export async function createStudent(formData: FormData): Promise<void> {
+/**
+ * Nothing stopped the same phone number being entered twice through the two
+ * separate add-forms (Inquiry's own form, Lead's own form) - found live: a
+ * "Shaival" claimed into Sportsclub AND a second, still-unclaimed "Shaival"
+ * existed at once, same phone number, genuinely two rows. Checked on both
+ * create paths; editing an existing record is unaffected.
+ */
+async function findDuplicatePhone(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  phone: string,
+): Promise<{ name: string; location_id: string | null } | null> {
+  const { data } = await supabase
+    .from('students')
+    .select('name, location_id')
+    .eq('phone_number', phone)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+function duplicateMessage(existing: { name: string; location_id: string | null }): string {
+  const where = existing.location_id ? 'already in Inquiry/Joined' : 'still in the Lead pool';
+  return `A record for this phone number already exists: "${existing.name}" (${where}). Check there before adding again.`;
+}
+
+/**
+ * Both add-forms use useActionState (not a plain <form action={fn}>), so a
+ * recoverable problem - missing fields, a duplicate phone, a negative fee -
+ * can be returned as {error} and shown inline. Found live: with a plain
+ * thrown Error and no error.tsx boundary anywhere in this app, ANY
+ * validation failure crashed the whole page to Next's generic "This page
+ * couldn't load" screen - including the duplicate-phone check just added,
+ * which defeats the point of a friendly warning. Only genuinely unexpected
+ * failures (a real DB error) still throw.
+ */
+export async function createStudent(
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
   const { supabase, user } = await requireUser();
 
   const name = str(formData, 'name');
   const phone_number = str(formData, 'phone_number');
-  if (!name || !phone_number) throw new Error('Name and phone number are required.');
+  if (!name || !phone_number) return { error: 'Name and phone number are required.' };
+
+  const duplicate = await findDuplicatePhone(supabase, phone_number);
+  if (duplicate) return { error: duplicateMessage(duplicate) };
 
   const fee_total = num(formData, 'fee_total');
   const demo_fee_amount = num(formData, 'demo_fee_amount');
   const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
   if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
-    throw new Error('Fee amounts cannot be negative.');
+    return { error: 'Fee amounts cannot be negative.' };
   }
 
   const { data, error } = await supabase
@@ -40,24 +83,80 @@ export async function createStudent(formData: FormData): Promise<void> {
     .select('id')
     .single();
 
-  if (error) throw new Error(`Could not add: ${error.message}`);
+  if (error) return { error: `Could not add: ${error.message}` };
 
   revalidatePath('/students');
   redirect(`/students/${data.id}`);
 }
 
-export async function updateStudent(studentId: string, formData: FormData): Promise<void> {
+/**
+ * Lead-only add: intentionally no location/batch/fee fields (a Lead is by
+ * definition undecided) and, unlike createStudent, no redirect - staying on
+ * /students/leads is the whole point for rapid back-to-back phone intake.
+ * The form itself is keyed on the current lead count so it remounts (and
+ * its uncontrolled fields + any lingering error message clear) after each
+ * successful add.
+ */
+export async function createLead(
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
   const { supabase, user } = await requireUser();
 
   const name = str(formData, 'name');
   const phone_number = str(formData, 'phone_number');
-  if (!name || !phone_number) throw new Error('Name and phone number are required.');
+  if (!name || !phone_number) return { error: 'Name and phone number are required.' };
+
+  const duplicate = await findDuplicatePhone(supabase, phone_number);
+  if (duplicate) return { error: duplicateMessage(duplicate) };
+
+  const { error } = await supabase.from('students').insert({
+    name,
+    phone_number,
+    whatsapp_number: str(formData, 'whatsapp_number'),
+    source: str(formData, 'source'),
+    status: 'follow_up',
+    remarks: str(formData, 'remarks'),
+    created_by: user.id,
+    is_lead: true,
+  });
+
+  if (error) return { error: `Could not add: ${error.message}` };
+
+  revalidatePath('/students/leads');
+  return null;
+}
+
+/**
+ * The detail page's full edit - useActionState so a recoverable problem
+ * shows inline instead of crashing (same reasoning as createStudent/
+ * createLead). Also the real, server-side half of the "can't mark Joined
+ * without a batch and a fee" lock - the client-side check in
+ * student-edit-form.tsx is convenience, this is the actual guard, since a
+ * request could always bypass the UI.
+ */
+export async function updateStudent(
+  studentId: string,
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
+  const { supabase, user } = await requireUser();
+
+  const name = str(formData, 'name');
+  const phone_number = str(formData, 'phone_number');
+  if (!name || !phone_number) return { error: 'Name and phone number are required.' };
 
   const fee_total = num(formData, 'fee_total');
   const demo_fee_amount = num(formData, 'demo_fee_amount');
   const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
   if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
-    throw new Error('Fee amounts cannot be negative.');
+    return { error: 'Fee amounts cannot be negative.' };
+  }
+
+  const status = str(formData, 'status');
+  const batch_id = str(formData, 'batch_id');
+  if (status === 'joined' && (!batch_id || fee_total === null)) {
+    return { error: 'Add a batch and a fee amount before marking as Joined.' };
   }
 
   const { error } = await supabase
@@ -68,9 +167,9 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
       whatsapp_number: str(formData, 'whatsapp_number'),
       source: str(formData, 'source'),
       source_detail: str(formData, 'source_detail'),
-      status: str(formData, 'status'),
+      status,
       location_id: str(formData, 'location_id'),
-      batch_id: str(formData, 'batch_id'),
+      batch_id,
       inquiry_date: str(formData, 'inquiry_date'),
       fee_total,
       demo_fee_amount,
@@ -81,10 +180,11 @@ export async function updateStudent(studentId: string, formData: FormData): Prom
     })
     .eq('id', studentId);
 
-  if (error) throw new Error(`Could not save: ${error.message}`);
+  if (error) return { error: `Could not save: ${error.message}` };
 
   revalidatePath('/students');
   revalidatePath(`/students/${studentId}`);
+  return null;
 }
 
 /**
@@ -113,9 +213,27 @@ export async function claimLead(studentId: string, locationId: string): Promise<
   revalidatePath('/students');
 }
 
-/** Fast one-click status change from the Inquiry list — no need to open the detail page just to reclassify. */
+/**
+ * Fast one-click status change from the Inquiry list — no need to open the
+ * detail page just to reclassify. Marking someone "joined" is hard-blocked
+ * without a batch and a fee already set — the owner's stated assumption is
+ * "if joined, it's already complete," and Joined itself no longer checks
+ * this at all, so this is the one real enforcement point. The UI's own
+ * block (status-quick-set.tsx) is convenience; this is the actual guard.
+ */
 export async function setStudentStatus(studentId: string, status: string): Promise<void> {
   const { supabase, user } = await requireUser();
+
+  if (status === 'joined') {
+    const { data: current } = await supabase
+      .from('students')
+      .select('batch_id, fee_total')
+      .eq('id', studentId)
+      .single();
+    if (!current?.batch_id || current.fee_total === null) {
+      throw new Error('Add a batch and a fee amount before marking as Joined.');
+    }
+  }
 
   const { error } = await supabase
     .from('students')

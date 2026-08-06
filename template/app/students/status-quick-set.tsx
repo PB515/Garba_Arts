@@ -16,9 +16,26 @@ interface StatusOption {
  * first - the owner's explicit ask, after noticing there was no visible
  * "this is happening now" moment. The other statuses stay instant, same
  * as before.
+ *
+ * `joinedBlockedReason` is a hard lock, not just a warning: the owner's
+ * stated assumption is "if joined, then it's already complete" - nothing
+ * on the Joined tab itself checks batch/fee anymore, so this is the one
+ * place that has to actually enforce it. When set, clicking Joined shows
+ * why it can't happen yet instead of the normal confirm dialog - there's no
+ * path to proceed anyway from here, since the missing fields aren't
+ * editable inline.
  */
-export function StatusQuickSet({ studentName, options }: { studentName: string; options: StatusOption[] }) {
+export function StatusQuickSet({
+  studentName,
+  options,
+  joinedBlockedReason,
+}: {
+  studentName: string;
+  options: StatusOption[];
+  joinedBlockedReason?: string;
+}) {
   const [confirming, setConfirming] = useState<StatusOption | null>(null);
+  const [blocked, setBlocked] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -31,7 +48,11 @@ export function StatusQuickSet({ studentName, options }: { studentName: string; 
             title={opt.label}
             onClick={() => {
               if (opt.value === 'joined') {
-                setConfirming(opt);
+                if (joinedBlockedReason) {
+                  setBlocked(true);
+                } else {
+                  setConfirming(opt);
+                }
               } else {
                 startTransition(opt.action);
               }
@@ -41,6 +62,25 @@ export function StatusQuickSet({ studentName, options }: { studentName: string; 
           />
         ))}
       </div>
+
+      {blocked ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[var(--radius)] border border-border bg-background p-4">
+            <p className="text-sm">
+              Can&apos;t mark <span className="font-semibold">{studentName}</span> as Joined yet: {joinedBlockedReason}
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setBlocked(false)}
+                className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {confirming ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

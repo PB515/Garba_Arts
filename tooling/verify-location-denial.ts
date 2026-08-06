@@ -217,6 +217,7 @@ async function main(): Promise<void> {
       name: '[VERIFY] unclaimed lead',
       phone_number: '0000000001',
       location_id: null,
+      is_lead: true,
       created_by: superAdminUser2.user.id,
     })
     .select('id')
@@ -233,36 +234,59 @@ async function main(): Promise<void> {
     JSON.stringify(sportsclubSeesLead)
   );
 
-  console.log(c.dim('\nclaiming a lead into the wrong location is rejected by claim_lead() (0020)...'));
-  const wrongClaim = await aalay.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: sportsclubLoc.id });
-  const { data: afterWrongClaim } = await superAdmin.from('students').select('location_id').eq('id', seededLead.id).single();
+  // 0022: claiming is no longer restricted to your own location - any
+  // authenticated staff member, any role, can claim into either location
+  // (owner's explicit call, superseding 0020's own-location-only rule).
+  console.log(c.dim('\na location_admin can now claim a lead into the OTHER location too (0022)...'));
+  const crossClaim = await aalay.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: sportsclubLoc.id });
+  check('Aalay admin can claim the lead into Sportsclub', crossClaim.error === null, crossClaim.error?.message);
+  const { data: afterCrossClaim } = await superAdmin.from('students').select('location_id').eq('id', seededLead.id).single();
+  check('the cross-location claim actually took effect', afterCrossClaim?.location_id === sportsclubLoc.id);
+
+  // 0023: 0022's table-wide "or is_lead = true" branch was too broad -
+  // confirmed live, it let an Aalay admin see a Sportsclub-claimed lead's
+  // full Inquiry record. Owner's call: sharing stays Lead-tab-only. So the
+  // base students/payments RLS is back to its pre-0022 shape - once claimed
+  // by Sportsclub, the Aalay admin loses normal-table visibility, exactly
+  // like any other cross-location record.
+  console.log(c.dim('\n...but once claimed, the base students table stays properly location-scoped (0023 - NOT shared, unlike lead_log())...'));
+  const { data: aalayNoLongerSeesViaTable } = await aalay.from('students').select('id').eq('id', seededLead.id);
   check(
-    "Aalay admin's attempt to claim the lead into Sportsclub is rejected, and it stays unclaimed",
-    wrongClaim.error !== null && afterWrongClaim?.location_id === null,
-    `wrongClaim.error=${wrongClaim.error?.message ?? 'none'}, location_id after=${afterWrongClaim?.location_id}`
+    "Aalay admin can no longer see it via the normal students table once Sportsclub claimed it",
+    (aalayNoLongerSeesViaTable?.length ?? 0) === 0,
+    JSON.stringify(aalayNoLongerSeesViaTable)
+  );
+  const { data: sportsclubSeesOwnClaimedLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
+  check('Sportsclub admin (who owns it now) sees it via the normal table', (sportsclubSeesOwnClaimedLead?.length ?? 0) === 1);
+
+  console.log(c.dim('\n...but lead_log() (0023) still shows it to Aalay, permanently, Lead-tab-scoped only...'));
+  const { data: aalayLeadLog } = await aalay.rpc('lead_log');
+  check(
+    "Aalay admin still sees it via lead_log() - the Lead tab's own permanent view",
+    (aalayLeadLog ?? []).some((r: { id: string }) => r.id === seededLead.id),
+    JSON.stringify(aalayLeadLog?.map((r: { id: string }) => r.id))
   );
 
-  console.log(c.dim('\nclaiming a lead into your OWN location succeeds, then it disappears from the other admin...'));
-  const rightClaim = await aalay.rpc('claim_lead', { p_student_id: seededLead.id, p_location_id: aalayLoc.id });
-  check('Aalay admin can claim the lead into Aalay', rightClaim.error === null, rightClaim.error?.message);
-
-  const { data: sportsclubSeesClaimedLead } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
+  console.log(c.dim('\n...and a normal (non-Lead-origin) record never appears in lead_log() at all...'));
   check(
-    'Sportsclub admin no longer sees it once claimed by Aalay',
-    (sportsclubSeesClaimedLead?.length ?? 0) === 0,
-    JSON.stringify(sportsclubSeesClaimedLead)
+    'Aalay admin still sees 0 Sportsclub students in general (the earlier cross-location check)',
+    (aalaySeesSportsclub?.length ?? 0) === 0
   );
+  if (aalayOwn?.[0]?.id) {
+    check(
+      "a real, already-located student (never a Lead) doesn't show up in lead_log() either",
+      !(aalayLeadLog ?? []).some((r: { id: string }) => r.id === aalayOwn[0].id)
+    );
+  }
 
-  const { data: aalayStillSeesClaimedLead } = await aalay.from('students').select('id').eq('id', seededLead.id);
-  check('Aalay admin still sees the lead it just claimed', (aalayStillSeesClaimedLead?.length ?? 0) === 1);
-
-  console.log(c.dim('\ntriage_admin: sees the shared pool, can claim into EITHER location, access ends there (0018/0019)...'));
+  console.log(c.dim('\ntriage_admin: sees the shared pool, can claim into EITHER location (0018/0019)...'));
   const { data: freshLead, error: freshLeadError } = await superAdmin
     .from('students')
     .insert({
       name: '[VERIFY] triage_admin lead',
       phone_number: '0000000002',
       location_id: null,
+      is_lead: true,
       created_by: superAdminUser2.user.id,
     })
     .select('id')
@@ -275,14 +299,22 @@ async function main(): Promise<void> {
   const triageClaimAalay = await triage.rpc('claim_lead', { p_student_id: freshLead.id, p_location_id: aalayLoc.id });
   check('triage_admin can claim a lead into Aalay', triageClaimAalay.error === null, triageClaimAalay.error?.message);
 
+  // 0023: "access ends at the claim" is back for the normal table (0018's
+  // original design) - the permanent view lives only in lead_log() now, not
+  // in general table access.
   const { data: triageSeesAfterAalayClaimNoLongerVisible } = await triage
     .from('students')
     .select('id')
     .eq('id', freshLead.id);
   check(
-    "triage_admin's own access ends the moment it's claimed — can't see it anymore",
+    "triage_admin's own table access ends the moment it's claimed — can't see it anymore",
     (triageSeesAfterAalayClaimNoLongerVisible?.length ?? 0) === 0,
     JSON.stringify(triageSeesAfterAalayClaimNoLongerVisible)
+  );
+  const { data: triageLeadLog } = await triage.rpc('lead_log');
+  check(
+    "triage_admin still sees it via lead_log() - claiming doesn't remove it from the Lead tab's permanent view",
+    (triageLeadLog ?? []).some((r: { id: string }) => r.id === freshLead.id)
   );
 
   if (aalayOwn?.[0]?.id) {
@@ -298,13 +330,15 @@ async function main(): Promise<void> {
   }
 
   // A second fresh lead, to prove triage_admin can also claim into
-  // Sportsclub — unlike a location_admin, who's locked to one location.
+  // Sportsclub — same open-claim rule 0022 gave every role, not special to
+  // triage_admin anymore.
   const { data: freshLead2, error: freshLead2Error } = await superAdmin
     .from('students')
     .insert({
       name: '[VERIFY] triage_admin lead 2',
       phone_number: '0000000003',
       location_id: null,
+      is_lead: true,
       created_by: superAdminUser2.user.id,
     })
     .select('id')
@@ -316,7 +350,7 @@ async function main(): Promise<void> {
     p_location_id: sportsclubLoc.id,
   });
   check(
-    'triage_admin can ALSO claim a lead into Sportsclub (not locked to one location, unlike a location_admin)',
+    'triage_admin can ALSO claim a lead into Sportsclub',
     triageClaimSportsclub.error === null,
     triageClaimSportsclub.error?.message
   );
