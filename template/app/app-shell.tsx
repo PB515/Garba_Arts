@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { site } from '@/lib/site';
 import { signOut } from '@/app/login/actions';
 import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
+import { InstallButton } from '@/lib/pwa/install-button';
 
 export async function AppShell({
   active,
@@ -57,12 +58,15 @@ export async function AppShell({
             ) : null}
           </nav>
         </div>
-        <form action={signOut} className="flex items-center gap-3">
-          <span className="text-sm text-muted">{userEmail}</span>
-          <button type="submit" className="text-sm underline">
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-3">
+          <InstallButton />
+          <form action={signOut} className="flex items-center gap-3">
+            <span className="text-sm text-muted">{userEmail}</span>
+            <button type="submit" className="text-sm underline">
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
       <main className="p-6">{children}</main>
     </div>
