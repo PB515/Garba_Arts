@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { claimLead, setStudentStatus } from '../actions';
+import { createStudent, claimLead, setStudentStatus } from '../actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { STATUS_OPTIONS, statusLabel, statusColor } from '@/lib/status';
 import { StatusDot } from '../status-dot';
 import { StatusQuickSet } from '../status-quick-set';
+import { SourceField } from '../source-field';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
 import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
@@ -64,6 +65,20 @@ export default async function LeadsPage({
   return (
     <AppShell active="leads" userEmail={user?.email}>
       <div className="space-y-8">
+        <section className="rounded-[var(--radius)] border border-border p-4">
+          <h2 className="mb-3 text-sm font-semibold">Add lead</h2>
+          <form action={createStudent} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <input name="name" placeholder="Full Name" required className={FIELD_CLASS} />
+            <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
+            <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
+            <SourceField className={FIELD_CLASS} />
+            <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
+            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+              Add
+            </button>
+          </form>
+        </section>
+
         <section>
           <form key={JSON.stringify(params)} className="mb-4 flex flex-wrap gap-3" method="get">
             <input
