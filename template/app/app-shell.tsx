@@ -1,8 +1,7 @@
-import Link from 'next/link';
 import { site } from '@/lib/site';
 import { signOut } from '@/app/login/actions';
 import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
-import { InstallButton } from '@/lib/pwa/install-button';
+import { AppHeader } from './app-header';
 
 export async function AppShell({
   active,
@@ -20,54 +19,26 @@ export async function AppShell({
   const superAdmin = isSuperAdmin(staffRole);
   const triageAdmin = isTriageAdmin(staffRole);
 
+  // triage_admin's access ends at the claim — nothing past Lead is reachable
+  // for them anyway (RLS), so don't show a link that would just land on an
+  // empty/403'd page.
+  const links = [
+    { href: '/dashboard', label: 'Dashboard', active: active === 'dashboard' },
+    { href: '/students/leads', label: 'Lead', active: active === 'leads' },
+    ...(!triageAdmin
+      ? [
+          { href: '/students', label: 'Inquiry', active: active === 'inquiry' },
+          { href: '/students/joined', label: 'Joined', active: active === 'joined' },
+          ...(superAdmin ? [{ href: '/fees', label: 'Fees', active: active === 'fees' }] : []),
+          { href: '/events', label: 'Events', active: active === 'events' },
+          { href: '/navratri-admin', label: 'Navratri', active: active === 'navratri' },
+        ]
+      : []),
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
-        <div className="flex items-center gap-6">
-          <span className="font-display text-lg font-semibold">{site.name}</span>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/dashboard" className={active === 'dashboard' ? 'font-semibold' : 'text-muted'}>
-              Dashboard
-            </Link>
-            <Link href="/students/leads" className={active === 'leads' ? 'font-semibold' : 'text-muted'}>
-              Lead
-            </Link>
-            {/* triage_admin's access ends at the claim — nothing below this
-                point is reachable for them anyway (RLS), so don't show a
-                link that would just land on an empty/403'd page. */}
-            {!triageAdmin ? (
-              <>
-                <Link href="/students" className={active === 'inquiry' ? 'font-semibold' : 'text-muted'}>
-                  Inquiry
-                </Link>
-                <Link href="/students/joined" className={active === 'joined' ? 'font-semibold' : 'text-muted'}>
-                  Joined
-                </Link>
-                {superAdmin ? (
-                  <Link href="/fees" className={active === 'fees' ? 'font-semibold' : 'text-muted'}>
-                    Fees
-                  </Link>
-                ) : null}
-                <Link href="/events" className={active === 'events' ? 'font-semibold' : 'text-muted'}>
-                  Events
-                </Link>
-                <Link href="/navratri-admin" className={active === 'navratri' ? 'font-semibold' : 'text-muted'}>
-                  Navratri
-                </Link>
-              </>
-            ) : null}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <InstallButton />
-          <form action={signOut} className="flex items-center gap-3">
-            <span className="text-sm text-muted">{userEmail}</span>
-            <button type="submit" className="text-sm underline">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
+      <AppHeader siteName={site.name} links={links} userEmail={userEmail} signOutAction={signOut} />
       <main className="p-6">{children}</main>
     </div>
   );
