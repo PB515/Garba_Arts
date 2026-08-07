@@ -4,10 +4,11 @@
  * two reasons: useActionState (inline errors instead of a page-crashing
  * throw, same fix as the two add-forms) and a hard lock + confirmation step
  * on marking someone Joined - the owner's explicit ask, mirroring the Inquiry
- * list's own quick-set. Since this form can set batch/fee AND status in the
- * same save, the check reads the form's *submitted* values, not the
- * student's stored ones - unlike the quick-set, which only ever changes
- * status and so has to check what's already saved.
+ * list's own quick-set. Fee total/Demo fee amount live in their own boxes
+ * now (decision #67), not this form, so the batch check reads this form's
+ * submission but the fee check reads the student's currently-stored value
+ * (passed in as a prop) instead - same end result, just sourced from
+ * wherever each field actually lives now.
  */
 import { useActionState, useRef, useState } from 'react';
 import { updateStudent } from './actions';
@@ -46,8 +47,6 @@ export function StudentEditForm({
     batch_id: string | null;
     inquiry_date: string | null;
     fee_total: number | null;
-    demo_fee_amount: number | null;
-    demo_fee_paid: number;
     remarks: string | null;
   };
   locations: Loc[];
@@ -67,7 +66,7 @@ export function StudentEditForm({
     const alreadyJoined = student.status === 'joined';
     const fd = new FormData(e.currentTarget);
     if (fd.get('status') === 'joined' && !alreadyJoined) {
-      if (!fd.get('batch_id') || !fd.get('fee_total')) {
+      if (!fd.get('batch_id') || student.fee_total === null) {
         e.preventDefault();
         setBlockedMessage('Add a batch and a fee amount before marking as Joined.');
         return;
@@ -142,39 +141,6 @@ export function StudentEditForm({
           <label className="text-sm">
             Inquiry date (when this lead came in)
             <input name="inquiry_date" type="date" defaultValue={student.inquiry_date ?? ''} className={FIELD_CLASS} />
-          </label>
-          <label className="text-sm">
-            Fee total
-            <input
-              name="fee_total"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={student.fee_total ?? ''}
-              className={FIELD_CLASS}
-            />
-          </label>
-          <label className="text-sm">
-            Demo fee amount
-            <input
-              name="demo_fee_amount"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={student.demo_fee_amount ?? ''}
-              className={FIELD_CLASS}
-            />
-          </label>
-          <label className="text-sm">
-            Demo fee paid
-            <input
-              name="demo_fee_paid"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={student.demo_fee_paid ?? 0}
-              className={FIELD_CLASS}
-            />
           </label>
         </div>
         <label className="block text-sm">

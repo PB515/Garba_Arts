@@ -57,8 +57,7 @@ export async function createStudent(
 
   const fee_total = num(formData, 'fee_total');
   const demo_fee_amount = num(formData, 'demo_fee_amount');
-  const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
-  if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
+  if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0)) {
     return { error: 'Fee amounts cannot be negative.' };
   }
 
@@ -76,7 +75,6 @@ export async function createStudent(
       inquiry_date: str(formData, 'inquiry_date'),
       fee_total,
       demo_fee_amount,
-      demo_fee_paid,
       remarks: str(formData, 'remarks'),
       created_by: user.id,
     })
@@ -130,10 +128,14 @@ export async function createLead(
 /**
  * The detail page's full edit - useActionState so a recoverable problem
  * shows inline instead of crashing (same reasoning as createStudent/
- * createLead). Also the real, server-side half of the "can't mark Joined
- * without a batch and a fee" lock - the client-side check in
- * student-edit-form.tsx is convenience, this is the actual guard, since a
- * request could always bypass the UI.
+ * createLead). Fee total and Demo fee amount live in their own boxes now
+ * (updateFeeTotal/updateDemoFeeAmount below) - moved out of this form entirely, since seeing
+ * the number and setting it in two different places was confusing (the
+ * owner's direct ask). Which means this form's own submission no longer
+ * carries fee_total, so the "can't mark Joined without a batch and a fee"
+ * lock has to read the currently-stored fee_total from the database instead
+ * of the form - still the real, server-side guard; the client-side check in
+ * student-edit-form.tsx is convenience only.
  */
 export async function updateStudent(
   studentId: string,
@@ -146,17 +148,13 @@ export async function updateStudent(
   const phone_number = str(formData, 'phone_number');
   if (!name || !phone_number) return { error: 'Name and phone number are required.' };
 
-  const fee_total = num(formData, 'fee_total');
-  const demo_fee_amount = num(formData, 'demo_fee_amount');
-  const demo_fee_paid = num(formData, 'demo_fee_paid') ?? 0;
-  if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0) || demo_fee_paid < 0) {
-    return { error: 'Fee amounts cannot be negative.' };
-  }
-
   const status = str(formData, 'status');
   const batch_id = str(formData, 'batch_id');
-  if (status === 'joined' && (!batch_id || fee_total === null)) {
-    return { error: 'Add a batch and a fee amount before marking as Joined.' };
+  if (status === 'joined') {
+    const { data: current } = await supabase.from('students').select('fee_total').eq('id', studentId).single();
+    if (!batch_id || current?.fee_total === null || current?.fee_total === undefined) {
+      return { error: 'Add a batch and a fee amount before marking as Joined.' };
+    }
   }
 
   const { error } = await supabase
@@ -171,13 +169,62 @@ export async function updateStudent(
       location_id: str(formData, 'location_id'),
       batch_id,
       inquiry_date: str(formData, 'inquiry_date'),
-      fee_total,
-      demo_fee_amount,
-      demo_fee_paid,
       remarks: str(formData, 'remarks'),
       updated_by: user.id,
       updated_at: new Date().toISOString(),
     })
+    .eq('id', studentId);
+
+  if (error) return { error: `Could not save: ${error.message}` };
+
+  revalidatePath('/students');
+  revalidatePath(`/students/${studentId}`);
+  return null;
+}
+
+/**
+ * Sets how much someone owes for the real course - lives in the Fees box
+ * now, not the Details form (decision #67): the owner's direct complaint
+ * was that seeing the total in one box but setting it in a different one
+ * was confusing. Each box owns its own amount + its own save, rather than
+ * one form spanning two visually separate sections.
+ */
+export async function updateFeeTotal(
+  studentId: string,
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
+  const { supabase, user } = await requireUser();
+
+  const fee_total = num(formData, 'fee_total');
+  if (fee_total !== null && fee_total < 0) return { error: 'Fee total cannot be negative.' };
+
+  const { error } = await supabase
+    .from('students')
+    .update({ fee_total, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq('id', studentId);
+
+  if (error) return { error: `Could not save: ${error.message}` };
+
+  revalidatePath('/students');
+  revalidatePath(`/students/${studentId}`);
+  return null;
+}
+
+/** Same as updateFeeTotal, for the Demo fee box's own amount. */
+export async function updateDemoFeeAmount(
+  studentId: string,
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
+  const { supabase, user } = await requireUser();
+
+  const demo_fee_amount = num(formData, 'demo_fee_amount');
+  if (demo_fee_amount !== null && demo_fee_amount < 0) return { error: 'Demo fee amount cannot be negative.' };
+
+  const { error } = await supabase
+    .from('students')
+    .update({ demo_fee_amount, updated_by: user.id, updated_at: new Date().toISOString() })
     .eq('id', studentId);
 
   if (error) return { error: `Could not save: ${error.message}` };
@@ -302,12 +349,28 @@ export async function permanentlyDeleteStudent(studentId: string): Promise<void>
   redirect('/students');
 }
 
-export async function addPayment(studentId: string, formData: FormData): Promise<void> {
+/**
+ * Logs a real payment - toward the main fee by default, or the demo fee
+ * when the Demo fee box's form submits payment_type=demo (decision #67:
+ * demo payments used to be a bare typed-in number, never actually logged,
+ * so they never counted toward the Fees tab's real Cash/UPI totals; now
+ * they're a real row here, just tagged, so both stay distinguishable but
+ * both count as real money collected). useActionState, same reasoning as
+ * every other action in this file: this form is used more now (both main
+ * and demo payments go through it), so the crash-on-throw gap was worth
+ * closing here too rather than leaving it for a "later pass."
+ */
+export async function addPayment(
+  studentId: string,
+  _prevState: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
   const { supabase, user } = await requireUser();
 
   const mode = str(formData, 'mode');
   const paid_date = str(formData, 'paid_date');
-  if (!mode || !paid_date) throw new Error('Mode and date are required.');
+  if (!mode || !paid_date) return { error: 'Mode and date are required.' };
+  const payment_type = str(formData, 'payment_type') === 'demo' ? 'demo' : 'main';
 
   // Cash + UPI (split) stores the two real amounts, not just a combined
   // figure, so the Fees tab can reconcile Total Cash / Total UPI against
@@ -319,12 +382,12 @@ export async function addPayment(studentId: string, formData: FormData): Promise
     cash_amount = num(formData, 'cash_amount');
     upi_amount = num(formData, 'upi_amount');
     if (!cash_amount || cash_amount <= 0 || !upi_amount || upi_amount <= 0) {
-      throw new Error('Both cash amount and UPI amount are required for a split payment.');
+      return { error: 'Both cash amount and UPI amount are required for a split payment.' };
     }
     amount = cash_amount + upi_amount;
   } else {
     amount = num(formData, 'amount');
-    if (!amount || amount <= 0) throw new Error('Amount is required.');
+    if (!amount || amount <= 0) return { error: 'Amount is required.' };
   }
 
   const { error } = await supabase.from('payments').insert({
@@ -334,12 +397,14 @@ export async function addPayment(studentId: string, formData: FormData): Promise
     cash_amount,
     upi_amount,
     paid_date,
+    payment_type,
     remarks: str(formData, 'remarks'),
     created_by: user.id,
   });
-  if (error) throw new Error(`Could not log payment: ${error.message}`);
+  if (error) return { error: `Could not log payment: ${error.message}` };
 
   revalidatePath(`/students/${studentId}`);
+  return null;
 }
 
 export async function archivePayment(paymentId: string, studentId: string): Promise<void> {

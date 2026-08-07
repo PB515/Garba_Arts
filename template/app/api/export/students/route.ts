@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('students')
     .select(
-      'id, name, phone_number, whatsapp_number, source, source_detail, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, demo_fee_paid, remarks, created_at'
+      'id, name, phone_number, whatsapp_number, source, source_detail, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, remarks, created_at'
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
@@ -65,14 +65,16 @@ export async function GET(request: NextRequest) {
 
   const ids = (students ?? []).map((s) => s.id);
   const paidByStudent = new Map<string, number>();
+  const demoPaidByStudent = new Map<string, number>();
   if (ids.length) {
     const { data: payments } = await supabase
       .from('payments')
-      .select('student_id, amount')
+      .select('student_id, amount, payment_type')
       .is('deleted_at', null)
       .in('student_id', ids);
     for (const p of payments ?? []) {
-      paidByStudent.set(p.student_id, (paidByStudent.get(p.student_id) ?? 0) + p.amount);
+      const map = p.payment_type === 'demo' ? demoPaidByStudent : paidByStudent;
+      map.set(p.student_id, (map.get(p.student_id) ?? 0) + p.amount);
     }
   }
 
@@ -108,6 +110,7 @@ export async function GET(request: NextRequest) {
   const rows = studentsForExport.map((s) => {
     const paid = paidByStudent.get(s.id) ?? 0;
     const balance = s.fee_total !== null ? s.fee_total - paid : '';
+    const demoPaid = demoPaidByStudent.get(s.id) ?? 0;
     return [
       s.name,
       s.phone_number,
@@ -122,7 +125,7 @@ export async function GET(request: NextRequest) {
       paid,
       balance,
       s.demo_fee_amount ?? '',
-      s.demo_fee_paid,
+      demoPaid,
       s.remarks ?? '',
       s.created_at,
     ];

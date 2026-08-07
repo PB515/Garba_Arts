@@ -13,7 +13,7 @@ const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text
 export default async function FeesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ location?: string; batch?: string; mode?: string }>;
+  searchParams: Promise<{ location?: string; batch?: string; mode?: string; type?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -31,11 +31,11 @@ export default async function FeesPage({
   const [{ data: students }, { data: payments }, { data: locations }, { data: batches }] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name, location_id, batch_id, fee_total, demo_fee_amount, demo_fee_paid')
+      .select('id, name, location_id, batch_id, fee_total, demo_fee_amount')
       .is('deleted_at', null),
     supabase
       .from('payments')
-      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, remarks')
+      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
     supabase.from('locations').select('id, name').order('name'),
@@ -49,21 +49,32 @@ export default async function FeesPage({
   // --- Fixed breakdown report — always the full picture, unaffected by the
   // filters below (which only narrow the payment log). "So can see what
   // type of payment come" was the ask: every slice at a glance, not one
-  // slice at a time. ---
+  // slice at a time.
+  //
+  // Total fee expected/collected/pending is the real *course* fee -
+  // 'main'-tagged payments only. Demo fees expected/collected is now
+  // derived from real logged 'demo' payments (decision #67), not a bare
+  // typed-in number that never counted as real money. Total Cash/UPI and
+  // "Collected by payment mode" below intentionally sum BOTH types - that's
+  // the actual cash/UPI in hand, regardless of what it was for. This is the
+  // specific gap the owner reported live: demo payments weren't showing up
+  // in the real Cash/UPI totals at all. ---
+  const mainPayments = (payments ?? []).filter((p) => p.payment_type === 'main');
+  const demoPayments = (payments ?? []).filter((p) => p.payment_type === 'demo');
   const totalExpected = (students ?? []).reduce((sum, s) => sum + (s.fee_total ?? 0), 0);
-  const totalCollected = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
+  const totalCollected = mainPayments.reduce((sum, p) => sum + p.amount, 0);
   const totalPending = totalExpected - totalCollected;
   const totalDemoExpected = (students ?? []).reduce((sum, s) => sum + (s.demo_fee_amount ?? 0), 0);
-  const totalDemoCollected = (students ?? []).reduce((sum, s) => sum + s.demo_fee_paid, 0);
+  const totalDemoCollected = demoPayments.reduce((sum, p) => sum + p.amount, 0);
 
   const byMode: Record<string, number> = { cash: 0, upi: 0, cash_upi: 0 };
   const byLocation = new Map<string, number>();
   const byBatch = new Map<string, number>();
   // Total Cash / Total UPI — real money reconciliation, separate from "how
   // it was logged" above. A split payment decomposes into its actual
-  // cash_amount/upi_amount so these two numbers always add up to
-  // totalCollected, unlike byMode.cash_upi which counts the whole split
-  // amount as its own bucket.
+  // cash_amount/upi_amount so these two numbers always add up to the grand
+  // total of ALL payments (main + demo), unlike byMode.cash_upi which
+  // counts the whole split amount as its own bucket.
   let totalCash = 0;
   let totalUpi = 0;
   for (const p of payments ?? []) {
@@ -81,6 +92,7 @@ export default async function FeesPage({
     if (student.location_id) byLocation.set(student.location_id, (byLocation.get(student.location_id) ?? 0) + p.amount);
     if (student.batch_id) byBatch.set(student.batch_id, (byBatch.get(student.batch_id) ?? 0) + p.amount);
   }
+  const totalAllPayments = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
 
   // --- Filters — narrow the payment log only, per the breakdown/filter split above ---
   let filteredStudentIds: Set<string> | null = null;
@@ -94,7 +106,8 @@ export default async function FeesPage({
   }
   const filteredPayments = (payments ?? [])
     .filter((p) => (filteredStudentIds ? filteredStudentIds.has(p.student_id) : true))
-    .filter((p) => (params.mode ? p.mode === params.mode : true));
+    .filter((p) => (params.mode ? p.mode === params.mode : true))
+    .filter((p) => (params.type ? p.payment_type === params.type : true));
 
   const cards = [
     { label: 'Total fee expected', value: totalExpected.toFixed(2) },
@@ -145,7 +158,7 @@ export default async function FeesPage({
               </div>
               <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <dt>All</dt>
-                <dd>{totalCollected.toFixed(2)}</dd>
+                <dd>{totalAllPayments.toFixed(2)}</dd>
               </div>
             </dl>
           </div>
@@ -161,7 +174,7 @@ export default async function FeesPage({
               ))}
               <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <dt>All</dt>
-                <dd>{totalCollected.toFixed(2)}</dd>
+                <dd>{totalAllPayments.toFixed(2)}</dd>
               </div>
             </dl>
           </div>
@@ -179,7 +192,7 @@ export default async function FeesPage({
               ))}
               <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <dt>All</dt>
-                <dd>{totalCollected.toFixed(2)}</dd>
+                <dd>{totalAllPayments.toFixed(2)}</dd>
               </div>
             </dl>
           </div>
@@ -205,6 +218,11 @@ export default async function FeesPage({
               <option value="upi">UPI</option>
               <option value="cash_upi">Cash + UPI</option>
             </select>
+            <select name="type" defaultValue={params.type ?? ''} className={FIELD_CLASS}>
+              <option value="">Main + Demo</option>
+              <option value="main">Main fee only</option>
+              <option value="demo">Demo fee only</option>
+            </select>
             <button type="submit" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
               Filter
             </button>
@@ -213,6 +231,7 @@ export default async function FeesPage({
                 location: params.location,
                 batch: params.batch,
                 mode: params.mode,
+                type: params.type,
               })}`}
               className="ml-auto rounded-[var(--radius)] border border-border px-3 py-2 text-sm"
             >
@@ -231,6 +250,7 @@ export default async function FeesPage({
                     <th className="p-3">Student</th>
                     <th className="p-3">Location</th>
                     <th className="p-3">Batch</th>
+                    <th className="p-3">Type</th>
                     <th className="p-3">Mode</th>
                     <th className="p-3">Amount</th>
                     <th className="p-3">Remarks</th>
@@ -249,6 +269,7 @@ export default async function FeesPage({
                         </td>
                         <td className="p-3">{student?.location_id ? locationName.get(student.location_id) : '-'}</td>
                         <td className="p-3">{student?.batch_id ? batchName.get(student.batch_id) : '-'}</td>
+                        <td className="p-3">{p.payment_type === 'demo' ? 'Demo' : 'Main'}</td>
                         <td className="p-3">{paymentModeLabel(p.mode)}</td>
                         <td className="p-3">{p.amount.toFixed(2)}</td>
                         <td className="p-3">{p.remarks ?? '-'}</td>

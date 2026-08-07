@@ -17,7 +17,10 @@ const LABELS: Record<FeeStatus, string> = {
   paid: 'Paid',
   not_paid: 'Not paid',
   half_paid: 'Half paid',
-  no_fee_set: '-',
+  // Deliberately distinct from "Not paid" - a fee that was never entered is
+  // a different problem (an incomplete profile) than one that's set but
+  // unpaid, so it doesn't join isFeePending() or the row tint either.
+  no_fee_set: 'Not entered',
 };
 
 const COLORS: Record<FeeStatus, string> = {

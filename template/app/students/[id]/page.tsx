@@ -2,16 +2,11 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
-import {
-  archiveStudent,
-  restoreStudent,
-  permanentlyDeleteStudent,
-  addPayment,
-  archivePayment,
-  permanentlyDeletePayment,
-} from '../actions';
+import { archiveStudent, restoreStudent, permanentlyDeleteStudent, archivePayment, permanentlyDeletePayment } from '../actions';
 import { StudentEditForm } from '../student-edit-form';
-import { PaymentModeFields } from '../payment-mode-fields';
+import { FeeTotalForm } from '../fee-total-form';
+import { DemoFeeAmountForm } from '../demo-fee-amount-form';
+import { PaymentLogForm } from '../payment-log-form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
 
@@ -63,13 +58,18 @@ export default async function StudentDetailPage({
     ? (allLocations ?? [])
     : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
 
-  const boundAddPayment = addPayment.bind(null, id);
   const boundArchive = archiveStudent.bind(null, id);
   const boundRestore = restoreStudent.bind(null, id);
   const boundPermanentDelete = permanentlyDeleteStudent.bind(null, id);
 
-  const totalPaid = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
+  // Demo payments (0025) live in the same table now, tagged separately -
+  // each fee's Paid/Balance only ever sums its own type.
+  const mainPayments = (payments ?? []).filter((p) => p.payment_type === 'main');
+  const demoPayments = (payments ?? []).filter((p) => p.payment_type === 'demo');
+  const totalPaid = mainPayments.reduce((sum, p) => sum + p.amount, 0);
   const balance = student.fee_total !== null ? student.fee_total - totalPaid : null;
+  const totalDemoPaid = demoPayments.reduce((sum, p) => sum + p.amount, 0);
+  const demoBalance = student.demo_fee_amount !== null ? student.demo_fee_amount - totalDemoPaid : null;
 
   return (
     <AppShell active={backTarget.active} userEmail={user?.email}>
@@ -112,9 +112,10 @@ export default async function StudentDetailPage({
         </section>
 
         <section className="space-y-4">
-          <div className="rounded-[var(--radius)] border border-border p-4">
-            <h2 className="mb-2 text-sm font-semibold">Fees</h2>
-            <dl className="grid grid-cols-3 gap-3 text-sm">
+          <div className="space-y-3 rounded-[var(--radius)] border border-border p-4">
+            <h2 className="text-sm font-semibold">Fees</h2>
+            <FeeTotalForm studentId={id} feeTotal={student.fee_total} />
+            <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm">
               <div>
                 <dt className="text-muted">Fee total</dt>
                 <dd>{student.fee_total !== null ? student.fee_total.toFixed(2) : '-'}</dd>
@@ -129,14 +130,28 @@ export default async function StudentDetailPage({
               </div>
             </dl>
 
-            <form action={boundAddPayment} className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-4">
-              <PaymentModeFields className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              <input name="paid_date" type="date" required className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              <input name="remarks" placeholder="Remarks" className="rounded-[var(--radius)] border border-border px-3 py-2 text-sm" />
-              <button type="submit" className="col-span-2 rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground sm:col-span-4">
-                Log payment
-              </button>
-            </form>
+            <PaymentLogForm studentId={id} paymentType="main" />
+          </div>
+
+          <div className="space-y-3 rounded-[var(--radius)] border border-border p-4">
+            <h2 className="text-sm font-semibold">Demo fee</h2>
+            <DemoFeeAmountForm studentId={id} demoFeeAmount={student.demo_fee_amount} />
+            <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm">
+              <div>
+                <dt className="text-muted">Demo fee amount</dt>
+                <dd>{student.demo_fee_amount !== null ? student.demo_fee_amount.toFixed(2) : '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Paid</dt>
+                <dd>{totalDemoPaid.toFixed(2)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">Balance</dt>
+                <dd className="font-semibold">{demoBalance !== null ? demoBalance.toFixed(2) : '-'}</dd>
+              </div>
+            </dl>
+
+            <PaymentLogForm studentId={id} paymentType="demo" />
           </div>
 
           <div className="rounded-[var(--radius)] border border-border p-4">
@@ -149,6 +164,7 @@ export default async function StudentDetailPage({
                   <li key={p.id} className="flex items-center justify-between py-2">
                     <span>
                       {p.paid_date} · {paymentModeLabel(p.mode)} · {p.amount.toFixed(2)}
+                      {p.payment_type === 'demo' ? ' · Demo' : ''}
                       {p.remarks ? ` · ${p.remarks}` : ''}
                     </span>
                     <span className="flex gap-3">

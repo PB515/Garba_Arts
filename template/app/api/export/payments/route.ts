@@ -31,11 +31,12 @@ export async function GET(request: NextRequest) {
   const location = params.get('location');
   const batch = params.get('batch');
   const mode = params.get('mode');
+  const type = params.get('type');
 
   const [{ data: payments, error }, { data: students }, { data: locations }, { data: batches }] = await Promise.all([
     supabase
       .from('payments')
-      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, remarks')
+      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
     supabase.from('students').select('id, name, location_id, batch_id').is('deleted_at', null),
@@ -54,10 +55,11 @@ export async function GET(request: NextRequest) {
     if (location && student?.location_id !== location) return false;
     if (batch && student?.batch_id !== batch) return false;
     if (mode && p.mode !== mode) return false;
+    if (type && p.payment_type !== type) return false;
     return true;
   });
 
-  const header = ['Date', 'Student', 'Location', 'Batch', 'Mode', 'Cash amount', 'UPI amount', 'Amount', 'Remarks'];
+  const header = ['Date', 'Student', 'Location', 'Batch', 'Type', 'Mode', 'Cash amount', 'UPI amount', 'Amount', 'Remarks'];
 
   const rows = filteredPayments.map((p) => {
     const student = studentById.get(p.student_id);
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
       student?.name ?? '',
       student?.location_id ? (locationName.get(student.location_id) ?? '') : '',
       student?.batch_id ? (batchName.get(student.batch_id) ?? '') : '',
+      p.payment_type === 'demo' ? 'Demo' : 'Main',
       paymentModeLabel(p.mode),
       p.cash_amount ?? '',
       p.upi_amount ?? '',

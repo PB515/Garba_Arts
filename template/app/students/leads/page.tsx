@@ -3,9 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { claimLead } from '../actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
-import { STATUS_OPTIONS, statusLabel, statusColor } from '@/lib/status';
-import { StatusDot } from '../status-dot';
-import { orIlikeValue, buildQueryString } from '@/lib/form';
+import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
+import { orIlikeValue, buildQueryString, whatsappLink } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
 import { AddLeadForm } from './add-lead-form';
@@ -109,41 +108,55 @@ export default async function LeadsPage({
               <table className="w-full text-sm">
                 <thead className="bg-muted/10 text-left">
                   <tr>
-                    <th className="p-3">Status</th>
                     <th className="p-3">Name</th>
                     <th className="p-3">Phone</th>
                     <th className="p-3">Source</th>
                     <th className="p-3">Remarks</th>
+                    <th className="p-3">WhatsApp</th>
                     <th className="p-3">Claim</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="border-t border-border"
-                      style={{ backgroundColor: s.location_id ? undefined : UNCLAIMED_TINT }}
-                    >
-                      <td className="p-3">
-                        <StatusDot color={statusColor(s.status)} label={statusLabel(s.status)} />
-                      </td>
-                      <td className="p-3">
-                        <Link href={`/students/${s.id}?from=leads`} className="font-medium underline">
-                          {s.name}
-                        </Link>
-                      </td>
-                      <td className="p-3">{s.phone_number}</td>
-                      <td className="p-3">{s.source ?? '-'}</td>
-                      <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
-                      <td className="p-3">
-                        {s.location_id ? (
-                          <span className="text-muted">{locationName.get(s.location_id) ?? '-'}</span>
-                        ) : (
-                          <ClaimLeadButtons locations={allLocations ?? []} onClaim={claimLead.bind(null, s.id)} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {leads.map((s) => {
+                    const waLink = whatsappLink(s.phone_number, s.whatsapp_number);
+                    return (
+                      <tr
+                        key={s.id}
+                        className="border-t border-border"
+                        style={{ backgroundColor: s.location_id ? undefined : UNCLAIMED_TINT }}
+                      >
+                        <td className="p-3">
+                          <Link href={`/students/${s.id}?from=leads`} className="font-medium underline">
+                            {s.name}
+                          </Link>
+                        </td>
+                        <td className="p-3">{s.phone_number}</td>
+                        <td className="p-3">{s.source ?? '-'}</td>
+                        <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
+                        <td className="p-3">
+                          {waLink ? (
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-[var(--radius)] border border-border px-2 py-1 text-xs font-medium"
+                            >
+                              WhatsApp
+                            </a>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {s.location_id ? (
+                            <span className="text-muted">{locationName.get(s.location_id) ?? '-'}</span>
+                          ) : (
+                            <ClaimLeadButtons locations={allLocations ?? []} onClaim={claimLead.bind(null, s.id)} />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

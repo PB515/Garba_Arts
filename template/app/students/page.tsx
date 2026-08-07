@@ -8,7 +8,7 @@ import { LocationBatchSelect } from './location-batch-select';
 import { StatusDot } from './status-dot';
 import { StatusQuickSet } from './status-quick-set';
 import { AddInquiryForm } from './add-inquiry-form';
-import { feeStatus, feeStatusLabel, feeStatusColor, feeStatusRowTint, isFeePending } from '@/lib/fee-status';
+import { feeStatus, feeStatusLabel, feeStatusColor, isFeePending } from '@/lib/fee-status';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 
@@ -62,10 +62,13 @@ export default async function InquiryPage({
   const studentIds = (students ?? []).map((s) => s.id);
   const paidByStudent = new Map<string, number>();
   if (studentIds.length) {
+    // 'main' only - demo fee payments (0025) also live in this table now,
+    // but shouldn't count toward the real course fee's Paid/Balance/badge.
     const { data: payments } = await supabase
       .from('payments')
       .select('student_id, amount')
       .is('deleted_at', null)
+      .eq('payment_type', 'main')
       .in('student_id', studentIds);
     for (const p of payments ?? []) {
       paidByStudent.set(p.student_id, (paidByStudent.get(p.student_id) ?? 0) + p.amount);
@@ -176,11 +179,7 @@ export default async function InquiryPage({
                     const missingBatch = !s.batch_id;
                     const missingFee = s.fee_total === null;
                     return (
-                      <tr
-                        key={s.id}
-                        className="border-t border-border"
-                        style={{ backgroundColor: feeStatusRowTint(fStatus) }}
-                      >
+                      <tr key={s.id} className="border-t border-border">
                         <td className="p-3">
                           <StatusDot color={statusColor(s.status)} label={statusLabel(s.status)} />
                         </td>

@@ -53,6 +53,24 @@ export function buildQueryString(params: Record<string, string | undefined>): st
   return s ? `?${s}` : '';
 }
 
+/**
+ * A wa.me link for the quick-message button on the Lead tab. WhatsApp
+ * number takes priority over the plain phone number when both exist -
+ * that's literally what the field is for. Numbers are stored as plain
+ * 10-digit Indian mobile numbers with no country code (no format
+ * validation on this field, decision from Phase 3), so `91` is prepended
+ * here; a leading 0 (sometimes typed out of landline habit) is stripped
+ * first since wa.me needs the number without one.
+ */
+export function whatsappLink(phone: string | null, whatsapp: string | null): string | null {
+  const raw = (whatsapp || phone)?.replace(/[^\d]/g, '');
+  if (!raw) return null;
+  const digits = raw.replace(/^0+/, '');
+  if (!digits) return null;
+  const withCountryCode = digits.startsWith('91') ? digits : `91${digits}`;
+  return `https://wa.me/${withCountryCode}`;
+}
+
 export interface AttendeeInput {
   name: string;
   phone: string | null;

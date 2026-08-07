@@ -343,6 +343,7 @@ export type Database = {
           id: string
           mode: string
           paid_date: string
+          payment_type: string
           remarks: string | null
           student_id: string
           upi_amount: number | null
@@ -357,6 +358,7 @@ export type Database = {
           id?: string
           mode: string
           paid_date: string
+          payment_type?: string
           remarks?: string | null
           student_id: string
           upi_amount?: number | null
@@ -371,6 +373,7 @@ export type Database = {
           id?: string
           mode?: string
           paid_date?: string
+          payment_type?: string
           remarks?: string | null
           student_id?: string
           upi_amount?: number | null
@@ -422,7 +425,6 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           demo_fee_amount: number | null
-          demo_fee_paid: number
           fee_total: number | null
           id: string
           inquiry_date: string | null
@@ -445,7 +447,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           demo_fee_amount?: number | null
-          demo_fee_paid?: number
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
@@ -468,7 +469,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           demo_fee_amount?: number | null
-          demo_fee_paid?: number
           fee_total?: number | null
           id?: string
           inquiry_date?: string | null
@@ -531,6 +531,7 @@ export type Database = {
           remarks: string
           source: string
           status: string
+          whatsapp_number: string
         }[]
       }
       staff_location_id: { Args: never; Returns: string }
