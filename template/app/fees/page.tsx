@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
 import { paymentModeLabel } from '@/lib/fee-status';
 import { LocationBatchSelect } from '@/app/students/location-batch-select';
 import { buildQueryString } from '@/lib/form';
@@ -28,21 +29,28 @@ export default async function FeesPage({
   const staffRole = await getStaffRole();
   if (!isSuperAdmin(staffRole)) redirect('/dashboard');
 
-  const [{ data: students }, { data: payments }, { data: locations }, { data: batches }] = await Promise.all([
+  const season = await getCurrentSeason(supabase);
+
+  const [{ data: students }, { data: allPayments }, { data: locations }, { data: batches }] = await Promise.all([
     supabase
       .from('students')
       .select('id, name, location_id, batch_id, fee_total, demo_fee_amount')
-      .is('deleted_at', null),
+      .is('deleted_at', null)
+      .eq('season_id', season?.id ?? ''),
     supabase
       .from('payments')
       .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
     supabase.from('locations').select('id, name').order('name'),
-    supabase.from('batches').select('id, name, location_id').order('name'),
+    supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
   ]);
 
   const studentById = new Map((students ?? []).map((s) => [s.id, s]));
+  // Payments don't carry season_id themselves - a payment belongs to
+  // whatever season its student belongs to, so this is how the whole tab
+  // stays scoped to the current season without denormalizing the column.
+  const payments = (allPayments ?? []).filter((p) => studentById.has(p.student_id));
   const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
   const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
 
@@ -120,6 +128,7 @@ export default async function FeesPage({
   return (
     <AppShell active="fees" userEmail={user?.email}>
       <div className="space-y-8">
+        {season ? <p className="text-sm text-muted">Season: {season.label}</p> : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {cards.map((c) => (
             <div key={c.label} className="rounded-[var(--radius)] border border-border p-4">

@@ -4,6 +4,7 @@ import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { LocationBatchSelect } from '../location-batch-select';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -29,10 +30,11 @@ export default async function JoinedStudentsPage({
 
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
+  const season = await getCurrentSeason(supabase);
 
   const [{ data: allLocations }, { data: batches }] = await Promise.all([
     supabase.from('locations').select('id, name').order('name'),
-    supabase.from('batches').select('id, name, location_id').order('name'),
+    supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
   ]);
   const locations = superAdmin
     ? (allLocations ?? [])
@@ -43,6 +45,7 @@ export default async function JoinedStudentsPage({
     .select('id, name, phone_number, location_id, batch_id')
     .is('deleted_at', null)
     .eq('status', 'joined')
+    .eq('season_id', season?.id ?? '')
     .order('created_at', { ascending: false });
 
   if (params.location) query = query.eq('location_id', params.location);
@@ -60,6 +63,7 @@ export default async function JoinedStudentsPage({
   return (
     <AppShell active="joined" userEmail={user?.email}>
       <div className="space-y-6">
+        {season ? <p className="text-sm text-muted">Season: {season.label}</p> : null}
         {/* Keyed on the current filters so a soft-navigation (e.g. "Reset
             filters") remounts the form - otherwise uncontrolled fields like
             the checkbox/selects keep their stale DOM state after the URL

@@ -70,18 +70,21 @@ export type Database = {
           id: string
           location_id: string
           name: string
+          season_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           location_id: string
           name: string
+          season_id: string
         }
         Update: {
           created_at?: string
           id?: string
           location_id?: string
           name?: string
+          season_id?: string
         }
         Relationships: [
           {
@@ -89,6 +92,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batches_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
             referencedColumns: ["id"]
           },
         ]
@@ -284,6 +294,30 @@ export type Database = {
         }
         Relationships: []
       }
+      message_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+        }
+        Relationships: []
+      }
       navratri_registrations: {
         Row: {
           amount_paid: number
@@ -388,6 +422,33 @@ export type Database = {
           },
         ]
       }
+      seasons: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          is_current: boolean
+          label: string
+          start_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_current?: boolean
+          label: string
+          start_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_current?: boolean
+          label?: string
+          start_date?: string | null
+        }
+        Relationships: []
+      }
       staff_roles: {
         Row: {
           created_at: string
@@ -433,6 +494,7 @@ export type Database = {
           name: string
           phone_number: string
           remarks: string | null
+          season_id: string
           source: string | null
           source_detail: string | null
           status: string | null
@@ -455,6 +517,7 @@ export type Database = {
           name: string
           phone_number: string
           remarks?: string | null
+          season_id: string
           source?: string | null
           source_detail?: string | null
           status?: string | null
@@ -477,6 +540,7 @@ export type Database = {
           name?: string
           phone_number?: string
           remarks?: string | null
+          season_id?: string
           source?: string | null
           source_detail?: string | null
           status?: string | null
@@ -499,6 +563,13 @@ export type Database = {
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -513,7 +584,7 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       is_triage_admin: { Args: never; Returns: boolean }
       joined_headcount_by_batch: {
-        Args: never
+        Args: { p_season_id?: string }
         Returns: {
           batch_id: string
           headcount: number
@@ -522,7 +593,7 @@ export type Database = {
       }
       keepalive: { Args: never; Returns: string }
       lead_log: {
-        Args: never
+        Args: { p_season_id?: string }
         Returns: {
           id: string
           location_id: string

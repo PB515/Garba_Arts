@@ -35,7 +35,7 @@ export default async function StudentDetailPage({
     await Promise.all([
       supabase.from('students').select('*').eq('id', id).single(),
       supabase.from('locations').select('id, name').order('name'),
-      supabase.from('batches').select('id, name, location_id').order('name'),
+      supabase.from('batches').select('id, name, location_id, season_id').order('name'),
       supabase
         .from('payments')
         .select('*')
@@ -57,6 +57,10 @@ export default async function StudentDetailPage({
   const locations = superAdmin
     ? (allLocations ?? [])
     : (allLocations ?? []).filter((l) => l.id === staffRole?.locationId);
+  // The record's own season, not necessarily the globally-current one - a
+  // student's batch never changes season by editing them, so the picker
+  // only ever offers batches from the season they actually belong to.
+  const seasonBatches = (batches ?? []).filter((b) => b.season_id === student.season_id);
 
   const boundArchive = archiveStudent.bind(null, id);
   const boundRestore = restoreStudent.bind(null, id);
@@ -93,7 +97,7 @@ export default async function StudentDetailPage({
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="space-y-3 rounded-[var(--radius)] border border-border p-4">
           <h2 className="text-sm font-semibold">Details</h2>
-          <StudentEditForm studentId={id} student={student} locations={locations ?? []} batches={batches ?? []} />
+          <StudentEditForm studentId={id} student={student} locations={locations ?? []} batches={seasonBatches} />
 
           <div className="flex gap-4 border-t border-border pt-3 text-sm">
             {!student.deleted_at ? (

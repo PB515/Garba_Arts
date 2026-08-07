@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
 import { orIlikeValue } from '@/lib/form';
 import { feeStatus, isFeePending } from '@/lib/fee-status';
 
@@ -26,12 +27,19 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
 
+  // Defaults to the current season; a `season` param (a season id) lets the
+  // Seasons tab's history view export a past year's data through the same
+  // route instead of a second copy of it.
+  const seasonParam = params.get('season');
+  const season = seasonParam ? { id: seasonParam } : await getCurrentSeason(supabase);
+
   let query = supabase
     .from('students')
     .select(
       'id, name, phone_number, whatsapp_number, source, source_detail, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, remarks, created_at'
     )
     .is('deleted_at', null)
+    .eq('season_id', season?.id ?? '')
     .order('created_at', { ascending: false });
 
   const location = params.get('location');

@@ -54,21 +54,35 @@ export function buildQueryString(params: Record<string, string | undefined>): st
 }
 
 /**
- * A wa.me link for the quick-message button on the Lead tab. WhatsApp
+ * A wa.me link for the quick-message button on Lead and Inquiry. WhatsApp
  * number takes priority over the plain phone number when both exist -
  * that's literally what the field is for. Numbers are stored as plain
  * 10-digit Indian mobile numbers with no country code (no format
  * validation on this field, decision from Phase 3), so `91` is prepended
  * here; a leading 0 (sometimes typed out of landline habit) is stripped
  * first since wa.me needs the number without one.
+ *
+ * `?text=` pre-fills WhatsApp's own compose box - staff can still edit it
+ * before sending, this just saves retyping the same opener every time. Not
+ * a substitute for a real message: wa.me has no way to pre-attach media at
+ * all (a hard limitation on WhatsApp's side, not something buildable
+ * around without the separate, much heavier WhatsApp Business Platform).
+ *
+ * `message` is a fully-formed string (already run through fillTemplate) -
+ * this function only handles the phone-number/URL half.
  */
-export function whatsappLink(phone: string | null, whatsapp: string | null): string | null {
+export function whatsappLink(phone: string | null, whatsapp: string | null, message?: string): string | null {
   const raw = (whatsapp || phone)?.replace(/[^\d]/g, '');
   if (!raw) return null;
   const digits = raw.replace(/^0+/, '');
   if (!digits) return null;
   const withCountryCode = digits.startsWith('91') ? digits : `91${digits}`;
-  return `https://wa.me/${withCountryCode}`;
+  return `https://wa.me/${withCountryCode}${message ? `?text=${encodeURIComponent(message)}` : ''}`;
+}
+
+/** Substitutes {name} in a message template (0027) - the one placeholder these support today. */
+export function fillTemplate(body: string, name: string): string {
+  return body.replaceAll('{name}', name);
 }
 
 export interface AttendeeInput {

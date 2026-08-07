@@ -9,8 +9,10 @@ import { StatusDot } from './status-dot';
 import { StatusQuickSet } from './status-quick-set';
 import { AddInquiryForm } from './add-inquiry-form';
 import { feeStatus, feeStatusLabel, feeStatusColor, isFeePending } from '@/lib/fee-status';
-import { orIlikeValue, buildQueryString } from '@/lib/form';
+import { orIlikeValue, buildQueryString, whatsappLink, fillTemplate } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
+import { WhatsAppMenu } from './whatsapp-menu';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -28,10 +30,14 @@ export default async function InquiryPage({
 
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
+  const season = await getCurrentSeason(supabase);
 
-  const [{ data: allLocations }, { data: batches }] = await Promise.all([
+  const [{ data: allLocations }, { data: batches }, { data: templates }] = await Promise.all([
     supabase.from('locations').select('id, name').order('name'),
-    supabase.from('batches').select('id, name, location_id').order('name'),
+    // Current season only (decision #72) - last year's frozen batches
+    // shouldn't show up as options for a record being worked on today.
+    supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
+    supabase.from('message_templates').select('id, label, body').order('created_at', { ascending: true }),
   ]);
 
   // A location_admin only ever has one real choice, so don't show a
@@ -42,9 +48,10 @@ export default async function InquiryPage({
 
   let query = supabase
     .from('students')
-    .select('id, name, phone_number, status, location_id, batch_id, fee_total, remarks, deleted_at')
+    .select('id, name, phone_number, whatsapp_number, status, location_id, batch_id, fee_total, remarks, deleted_at')
     .is('deleted_at', null)
     .not('location_id', 'is', null) // an unclaimed Lead lives on its own tab, not here
+    .eq('season_id', season?.id ?? '')
     .order('created_at', { ascending: false });
 
   if (params.location) query = query.eq('location_id', params.location);
@@ -87,6 +94,7 @@ export default async function InquiryPage({
   return (
     <AppShell active="inquiry" userEmail={user?.email}>
       <div className="space-y-8">
+        {season ? <p className="text-sm text-muted">Season: {season.label}</p> : null}
         <section className="rounded-[var(--radius)] border border-border p-4">
           <h2 className="mb-3 text-sm font-semibold">Add inquiry / lead</h2>
           <AddInquiryForm
@@ -167,6 +175,7 @@ export default async function InquiryPage({
                     <th className="p-3">Batch</th>
                     <th className="p-3">Fees</th>
                     <th className="p-3">Remarks</th>
+                    <th className="p-3">WhatsApp</th>
                     <th className="p-3">Quick set</th>
                   </tr>
                 </thead>
@@ -178,6 +187,12 @@ export default async function InquiryPage({
                     // outright, via joinedBlockedReason below.
                     const missingBatch = !s.batch_id;
                     const missingFee = s.fee_total === null;
+                    const waOptions = (templates ?? [])
+                      .map((t) => ({
+                        label: t.label,
+                        href: whatsappLink(s.phone_number, s.whatsapp_number, fillTemplate(t.body, s.name)),
+                      }))
+                      .filter((o): o is { label: string; href: string } => o.href !== null);
                     return (
                       <tr key={s.id} className="border-t border-border">
                         <td className="p-3">
@@ -200,6 +215,9 @@ export default async function InquiryPage({
                           <StatusDot color={feeStatusColor(fStatus)} label={feeStatusLabel(fStatus)} />
                         </td>
                         <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
+                        <td className="p-3">
+                          <WhatsAppMenu options={waOptions} />
+                        </td>
                         <td className="p-3">
                           <StatusQuickSet
                             studentName={s.name}

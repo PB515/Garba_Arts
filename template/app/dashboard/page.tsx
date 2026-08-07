@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -10,9 +11,10 @@ export default async function DashboardPage() {
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
   const triageAdmin = isTriageAdmin(staffRole);
+  const season = await getCurrentSeason(supabase);
 
   if (triageAdmin) {
-    return <TriageDashboard userEmail={user?.email} />;
+    return <TriageDashboard userEmail={user?.email} seasonLabel={season?.label} />;
   }
 
   const startOfMonth = new Date();
@@ -22,10 +24,19 @@ export default async function DashboardPage() {
   // No fee/payment data here at all — money only appears on an individual
   // student's own page, or the super-admin-only Fees tab. This is a
   // deliberate call, not an oversight.
+  //
+  // Every list in this app defaults to the current season only (decision
+  // #72) - a location_admin adding a new lead should never see last year's
+  // numbers mixed into "this season so far." History lives in the Seasons
+  // tab instead.
   const [{ data: students }, { data: locations }, { data: batches }] = await Promise.all([
-    supabase.from('students').select('id, status, location_id, batch_id, created_at').is('deleted_at', null),
+    supabase
+      .from('students')
+      .select('id, status, location_id, batch_id, created_at')
+      .is('deleted_at', null)
+      .eq('season_id', season?.id ?? ''),
     supabase.from('locations').select('id, name').order('name'),
-    supabase.from('batches').select('id, name, location_id').order('name'),
+    supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
   ]);
 
   const all = students ?? [];
@@ -72,6 +83,7 @@ export default async function DashboardPage() {
   return (
     <AppShell active="dashboard" userEmail={user?.email}>
       <div className="space-y-8">
+        {season ? <p className="text-sm text-muted">Season: {season.label}</p> : null}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           {cards.map((c) => (
             <div key={c.label} className="rounded-[var(--radius)] border border-border p-4">
@@ -130,12 +142,19 @@ export default async function DashboardPage() {
  * would all just show a nonsensical small number, since RLS only lets this
  * role see unclaimed leads directly) - headcount is the entire point.
  */
-async function TriageDashboard({ userEmail }: { userEmail: string | undefined }) {
+async function TriageDashboard({
+  userEmail,
+  seasonLabel,
+}: {
+  userEmail: string | undefined;
+  seasonLabel: string | undefined;
+}) {
   const supabase = await createClient();
+  const season = await getCurrentSeason(supabase);
 
   const [{ data: locations }, { data: batches }, { data: headcounts }] = await Promise.all([
     supabase.from('locations').select('id, name').order('name'),
-    supabase.from('batches').select('id, name, location_id').order('name'),
+    supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
     supabase.rpc('joined_headcount_by_batch'),
   ]);
 
@@ -149,6 +168,7 @@ async function TriageDashboard({ userEmail }: { userEmail: string | undefined })
 
   return (
     <AppShell active="dashboard" userEmail={userEmail}>
+      {seasonLabel ? <p className="mb-6 text-sm text-muted">Season: {seasonLabel}</p> : null}
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-[var(--radius)] border border-border p-4">
           <h2 className="mb-3 text-sm font-semibold">Joined headcount by location</h2>

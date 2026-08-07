@@ -68,6 +68,10 @@ async function main(): Promise<void> {
   const sportsclubLoc = locations?.find((l) => l.name === 'Sportsclub');
   if (!aalayLoc || !sportsclubLoc) throw new Error('expected both Aalay and Sportsclub locations to exist');
 
+  // 0026 - every student/lead now needs a season_id (not-null column).
+  const { data: season } = await superAdmin.from('seasons').select('id').eq('is_current', true).single();
+  if (!season) throw new Error('expected a current season to exist');
+
   console.log(c.dim('positive controls (each admin sees their OWN location)...'));
   const { data: aalayOwn } = await aalay.from('students').select('id').eq('location_id', aalayLoc.id).limit(1);
   check('Aalay admin can see Aalay students', (aalayOwn?.length ?? 0) > 0, 'expected at least 1 row from demo seed');
@@ -89,7 +93,7 @@ async function main(): Promise<void> {
   console.log(c.dim('\ncross-location write denial...'));
   const insertAttempt = await aalay
     .from('students')
-    .insert({ name: 'cross-location-should-fail', phone_number: '0000000000', location_id: sportsclubLoc.id });
+    .insert({ name: 'cross-location-should-fail', phone_number: '0000000000', location_id: sportsclubLoc.id, season_id: season.id });
   check('Aalay admin cannot insert a Sportsclub-location student', insertAttempt.error !== null, 'insert succeeded — RLS hole');
 
   console.log(c.dim('\npayments follow the same scoping (via the parent student)...'));
@@ -219,6 +223,7 @@ async function main(): Promise<void> {
       location_id: null,
       is_lead: true,
       created_by: superAdminUser2.user.id,
+      season_id: season.id,
     })
     .select('id')
     .single();
@@ -288,6 +293,7 @@ async function main(): Promise<void> {
       location_id: null,
       is_lead: true,
       created_by: superAdminUser2.user.id,
+      season_id: season.id,
     })
     .select('id')
     .single();
@@ -340,6 +346,7 @@ async function main(): Promise<void> {
       location_id: null,
       is_lead: true,
       created_by: superAdminUser2.user.id,
+      season_id: season.id,
     })
     .select('id')
     .single();

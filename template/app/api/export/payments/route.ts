@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { getCurrentSeason } from '@/lib/seasons';
 import { paymentModeLabel } from '@/lib/fee-status';
 
 function csvEscape(value: unknown): string {
@@ -32,6 +33,8 @@ export async function GET(request: NextRequest) {
   const batch = params.get('batch');
   const mode = params.get('mode');
   const type = params.get('type');
+  const seasonParam = params.get('season');
+  const season = seasonParam ? { id: seasonParam } : await getCurrentSeason(supabase);
 
   const [{ data: payments, error }, { data: students }, { data: locations }, { data: batches }] = await Promise.all([
     supabase
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
       .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
-    supabase.from('students').select('id, name, location_id, batch_id').is('deleted_at', null),
+    supabase.from('students').select('id, name, location_id, batch_id').is('deleted_at', null).eq('season_id', season?.id ?? ''),
     supabase.from('locations').select('id, name'),
     supabase.from('batches').select('id, name'),
   ]);
@@ -50,10 +53,13 @@ export async function GET(request: NextRequest) {
   const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
   const batchName = new Map((batches ?? []).map((b) => [b.id, b.name]));
 
+  // A payment whose student isn't in studentById belongs to a different
+  // season (or is genuinely deleted) - either way, not part of this export.
   const filteredPayments = (payments ?? []).filter((p) => {
     const student = studentById.get(p.student_id);
-    if (location && student?.location_id !== location) return false;
-    if (batch && student?.batch_id !== batch) return false;
+    if (!student) return false;
+    if (location && student.location_id !== location) return false;
+    if (batch && student.batch_id !== batch) return false;
     if (mode && p.mode !== mode) return false;
     if (type && p.payment_type !== type) return false;
     return true;

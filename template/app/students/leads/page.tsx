@@ -4,10 +4,11 @@ import { claimLead } from '../actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
-import { orIlikeValue, buildQueryString, whatsappLink } from '@/lib/form';
+import { orIlikeValue, buildQueryString, whatsappLink, fillTemplate } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
 import { AddLeadForm } from './add-lead-form';
+import { WhatsAppMenu } from '../whatsapp-menu';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -44,7 +45,10 @@ export default async function LeadsPage({
   const staffRole = await getStaffRole();
   const superAdmin = isSuperAdmin(staffRole);
 
-  const { data: allLocations } = await supabase.from('locations').select('id, name').order('name');
+  const [{ data: allLocations }, { data: templates }] = await Promise.all([
+    supabase.from('locations').select('id, name').order('name'),
+    supabase.from('message_templates').select('id, label, body').order('created_at', { ascending: true }),
+  ]);
   const locationName = new Map((allLocations ?? []).map((l) => [l.id, l.name]));
 
   let query = supabase.rpc('lead_log');
@@ -118,7 +122,12 @@ export default async function LeadsPage({
                 </thead>
                 <tbody>
                   {leads.map((s) => {
-                    const waLink = whatsappLink(s.phone_number, s.whatsapp_number);
+                    const waOptions = (templates ?? [])
+                      .map((t) => ({
+                        label: t.label,
+                        href: whatsappLink(s.phone_number, s.whatsapp_number, fillTemplate(t.body, s.name)),
+                      }))
+                      .filter((o): o is { label: string; href: string } => o.href !== null);
                     return (
                       <tr
                         key={s.id}
@@ -134,18 +143,7 @@ export default async function LeadsPage({
                         <td className="p-3">{s.source ?? '-'}</td>
                         <td className="p-3 max-w-[16rem] truncate">{s.remarks ?? '-'}</td>
                         <td className="p-3">
-                          {waLink ? (
-                            <a
-                              href={waLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-[var(--radius)] border border-border px-2 py-1 text-xs font-medium"
-                            >
-                              WhatsApp
-                            </a>
-                          ) : (
-                            '-'
-                          )}
+                          <WhatsAppMenu options={waOptions} />
                         </td>
                         <td className="p-3">
                           {s.location_id ? (

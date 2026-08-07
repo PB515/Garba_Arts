@@ -65,6 +65,10 @@ async function main(): Promise<void> {
   }
   const seedUserId = users.users[0].id;
 
+  console.log(c.dim('looking up the current season (0026 - batches/students both require one)...'));
+  const { data: season, error: seasonErr } = await svc.from('seasons').select('id').eq('is_current', true).single();
+  if (seasonErr || !season) throw new Error(`no current season found: ${seasonErr?.message}`);
+
   console.log(c.dim('seeding one row per table with the service-role client (bypasses RLS)...'));
 
   const { data: loc, error: locErr } = await svc
@@ -76,7 +80,7 @@ async function main(): Promise<void> {
 
   const { data: batch, error: batchErr } = await svc
     .from('batches')
-    .insert({ name: 'verify-denial-batch', location_id: loc.id })
+    .insert({ name: 'verify-denial-batch', location_id: loc.id, season_id: season.id })
     .select()
     .single();
   if (batchErr || !batch) throw new Error(`seed batches failed: ${batchErr?.message}`);
@@ -89,6 +93,7 @@ async function main(): Promise<void> {
       location_id: loc.id,
       batch_id: batch.id,
       created_by: seedUserId,
+      season_id: season.id,
     })
     .select()
     .single();
@@ -141,7 +146,26 @@ async function main(): Promise<void> {
     .single();
   if (navratriErr || !navratriReg) throw new Error(`seed navratri_registrations failed: ${navratriErr?.message}`);
 
+  const { data: template, error: templateErr } = await svc
+    .from('message_templates')
+    .insert({ label: 'verify-denial-template', body: 'test' })
+    .select()
+    .single();
+  if (templateErr || !template) throw new Error(`seed message_templates failed: ${templateErr?.message}`);
+
   console.log(c.dim('seeded. now proving the anon (unauthenticated) client is denied...\n'));
+
+  console.log('seasons (0026 - anon gets nothing, same as every other table):');
+  const seasonSelect = await anon.from('seasons').select('*').eq('id', season.id);
+  check('select returns no rows', (seasonSelect.data?.length ?? 0) === 0, JSON.stringify(seasonSelect.data));
+  const seasonInsert = await anon.from('seasons').insert({ label: 'anon-should-fail' });
+  check('insert is rejected', seasonInsert.error !== null, 'insert succeeded — RLS hole');
+
+  console.log('message_templates (0027 - open to every authenticated role, but anon still gets nothing):');
+  const templateSelect = await anon.from('message_templates').select('*').eq('id', template.id);
+  check('select returns no rows', (templateSelect.data?.length ?? 0) === 0, JSON.stringify(templateSelect.data));
+  const templateInsert = await anon.from('message_templates').insert({ label: 'anon-should-fail', body: 'x' });
+  check('insert is rejected', templateInsert.error !== null, 'insert succeeded — RLS hole');
 
   console.log('locations:');
   const locSelect = await anon.from('locations').select('*').eq('id', loc.id);
@@ -216,6 +240,7 @@ async function main(): Promise<void> {
   check('anon select returns no rows', (auditSelect.data?.length ?? 0) === 0, JSON.stringify(auditSelect.data));
 
   console.log(c.dim('\ncleaning up seeded rows via service-role...'));
+  await svc.from('message_templates').delete().eq('id', template.id);
   await svc.from('navratri_registrations').delete().eq('id', navratriReg.id);
   await svc.from('event_attendees').delete().eq('id', attendee.id);
   await svc.from('event_registrations').delete().eq('id', registration.id);

@@ -8,7 +8,7 @@ export async function AppShell({
   userEmail,
   children,
 }: {
-  active: 'dashboard' | 'leads' | 'inquiry' | 'joined' | 'fees' | 'events' | 'navratri';
+  active: 'dashboard' | 'leads' | 'inquiry' | 'joined' | 'fees' | 'events' | 'navratri' | 'seasons' | 'whatsapp';
   userEmail: string | undefined;
   children: React.ReactNode;
 }) {
@@ -25,6 +25,9 @@ export async function AppShell({
   const links = [
     { href: '/dashboard', label: 'Dashboard', active: active === 'dashboard' },
     { href: '/students/leads', label: 'Lead', active: active === 'leads' },
+    // Open to every role (decision, 0027) - unlike everything else below,
+    // this isn't gated by triageAdmin at all.
+    { href: '/whatsapp', label: 'WhatsApp', active: active === 'whatsapp' },
     ...(!triageAdmin
       ? [
           { href: '/students', label: 'Inquiry', active: active === 'inquiry' },
@@ -32,6 +35,7 @@ export async function AppShell({
           ...(superAdmin ? [{ href: '/fees', label: 'Fees', active: active === 'fees' }] : []),
           { href: '/events', label: 'Events', active: active === 'events' },
           { href: '/navratri-admin', label: 'Navratri', active: active === 'navratri' },
+          ...(superAdmin ? [{ href: '/seasons', label: 'Seasons', active: active === 'seasons' }] : []),
         ]
       : []),
   ];

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
 import { requireUser, str, num } from '@/lib/form';
+import { getCurrentSeason } from '@/lib/seasons';
 import type { createClient } from '@/lib/supabase/server';
 
 /**
@@ -61,6 +62,9 @@ export async function createStudent(
     return { error: 'Fee amounts cannot be negative.' };
   }
 
+  const season = await getCurrentSeason(supabase);
+  if (!season) return { error: 'No current season is set - contact the owner before adding anyone.' };
+
   const { data, error } = await supabase
     .from('students')
     .insert({
@@ -77,6 +81,7 @@ export async function createStudent(
       demo_fee_amount,
       remarks: str(formData, 'remarks'),
       created_by: user.id,
+      season_id: season.id,
     })
     .select('id')
     .single();
@@ -108,6 +113,9 @@ export async function createLead(
   const duplicate = await findDuplicatePhone(supabase, phone_number);
   if (duplicate) return { error: duplicateMessage(duplicate) };
 
+  const season = await getCurrentSeason(supabase);
+  if (!season) return { error: 'No current season is set - contact the owner before adding anyone.' };
+
   const { error } = await supabase.from('students').insert({
     name,
     phone_number,
@@ -117,6 +125,7 @@ export async function createLead(
     remarks: str(formData, 'remarks'),
     created_by: user.id,
     is_lead: true,
+    season_id: season.id,
   });
 
   if (error) return { error: `Could not add: ${error.message}` };
