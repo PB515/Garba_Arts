@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { sortBatches } from '@/lib/batches';
 
 /**
  * A past season, read-only - a summary, not a second copy of Lead/Inquiry/
@@ -103,7 +104,7 @@ export default async function SeasonHistoryPage({ params }: { params: Promise<{ 
               <p className="text-sm text-muted">No batches for this season.</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {batches.map((b) => (
+                {sortBatches(batches).map((b) => (
                   <li key={b.id} className="flex justify-between">
                     <span>
                       {locationName.get(b.location_id)} · {b.name}

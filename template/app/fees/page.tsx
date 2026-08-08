@@ -8,6 +8,7 @@ import { getCurrentSeason } from '@/lib/seasons';
 import { paymentModeLabel } from '@/lib/fee-status';
 import { LocationBatchSelect } from '@/app/students/location-batch-select';
 import { buildQueryString } from '@/lib/form';
+import { sortBatches } from '@/lib/batches';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -191,7 +192,7 @@ export default async function FeesPage({
           <div className="rounded-[var(--radius)] border border-border p-4">
             <h2 className="mb-3 text-sm font-semibold">Collected by batch</h2>
             <dl className="space-y-1 text-sm">
-              {(batches ?? []).map((b) => (
+              {sortBatches(batches ?? []).map((b) => (
                 <div key={b.id} className="flex justify-between">
                   <dt>
                     {locationName.get(b.location_id)} · {b.name}
@@ -212,7 +213,7 @@ export default async function FeesPage({
           <form className="mb-4 flex flex-wrap gap-3" method="get">
             <LocationBatchSelect
               locations={locations ?? []}
-              batches={batches ?? []}
+              batches={sortBatches(batches ?? [])}
               locationField="location"
               batchField="batch"
               defaultLocationId={params.location ?? ''}

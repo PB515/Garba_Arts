@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { getStaffRole, isSuperAdmin, isTriageAdmin } from '@/lib/roles';
 import { getCurrentSeason } from '@/lib/seasons';
+import { sortBatches } from '@/lib/batches';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -68,9 +69,9 @@ export default async function DashboardPage() {
   const visibleLocations = superAdmin
     ? (locations ?? [])
     : (locations ?? []).filter((l) => l.id === staffRole?.locationId);
-  const visibleBatches = superAdmin
-    ? (batches ?? [])
-    : (batches ?? []).filter((b) => b.location_id === staffRole?.locationId);
+  const visibleBatches = sortBatches(
+    superAdmin ? (batches ?? []) : (batches ?? []).filter((b) => b.location_id === staffRole?.locationId)
+  );
 
   const cards = [
     { label: 'Total leads', value: all.length },
@@ -192,7 +193,7 @@ async function TriageDashboard({
             <p className="text-sm text-muted">No batches yet.</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {batches.map((b) => (
+              {sortBatches(batches).map((b) => (
                 <li key={b.id} className="flex justify-between">
                   <span>
                     {locationName.get(b.location_id)} · {b.name}

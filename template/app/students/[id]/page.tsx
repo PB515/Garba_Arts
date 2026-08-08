@@ -9,6 +9,7 @@ import { DemoFeeAmountForm } from '../demo-fee-amount-form';
 import { PaymentLogForm } from '../payment-log-form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
+import { sortBatches } from '@/lib/batches';
 
 const BACK_TARGETS = {
   leads: { href: '/students/leads', active: 'leads' as const, label: 'Back to leads' },
@@ -60,7 +61,7 @@ export default async function StudentDetailPage({
   // The record's own season, not necessarily the globally-current one - a
   // student's batch never changes season by editing them, so the picker
   // only ever offers batches from the season they actually belong to.
-  const seasonBatches = (batches ?? []).filter((b) => b.season_id === student.season_id);
+  const seasonBatches = sortBatches((batches ?? []).filter((b) => b.season_id === student.season_id));
 
   const boundArchive = archiveStudent.bind(null, id);
   const boundRestore = restoreStudent.bind(null, id);

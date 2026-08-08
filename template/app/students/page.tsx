@@ -10,6 +10,7 @@ import { StatusQuickSet } from './status-quick-set';
 import { AddInquiryForm } from './add-inquiry-form';
 import { feeStatus, feeStatusLabel, feeStatusColor, isFeePending } from '@/lib/fee-status';
 import { orIlikeValue, buildQueryString, whatsappLink, fillTemplate } from '@/lib/form';
+import { sortBatches } from '@/lib/batches';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { getCurrentSeason } from '@/lib/seasons';
 import { WhatsAppMenu } from './whatsapp-menu';
@@ -39,6 +40,7 @@ export default async function InquiryPage({
     supabase.from('batches').select('id, name, location_id').eq('season_id', season?.id ?? '').order('name'),
     supabase.from('message_templates').select('id, label, body').order('created_at', { ascending: true }),
   ]);
+  const sortedBatches = sortBatches(batches ?? []);
 
   // A location_admin only ever has one real choice, so don't show a
   // dropdown with locations RLS would reject anyway.
@@ -99,7 +101,7 @@ export default async function InquiryPage({
           <h2 className="mb-3 text-sm font-semibold">Add inquiry / lead</h2>
           <AddInquiryForm
             locations={locations}
-            batches={batches ?? []}
+            batches={sortedBatches}
             defaultLocationId={!superAdmin ? (locations[0]?.id ?? '') : ''}
           />
         </section>
@@ -115,7 +117,7 @@ export default async function InquiryPage({
             {superAdmin ? (
               <LocationBatchSelect
                 locations={locations}
-                batches={batches ?? []}
+                batches={sortedBatches}
                 locationField="location"
                 batchField="batch"
                 defaultLocationId={params.location ?? ''}

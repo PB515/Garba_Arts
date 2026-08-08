@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { getCurrentSeason } from '@/lib/seasons';
+import { sortBatches } from '@/lib/batches';
 import { NewSeasonForm } from './new-season-form';
 
 /**
@@ -63,7 +64,7 @@ export default async function SeasonsPage() {
           </p>
           <NewSeasonForm
             locations={locations ?? []}
-            prefillBatches={(currentBatches ?? []).map((b) => ({ name: b.name, location_id: b.location_id }))}
+            prefillBatches={sortBatches(currentBatches ?? []).map((b) => ({ name: b.name, location_id: b.location_id }))}
           />
         </section>
 

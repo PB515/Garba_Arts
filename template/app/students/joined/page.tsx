@@ -6,6 +6,7 @@ import { LocationBatchSelect } from '../location-batch-select';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { getCurrentSeason } from '@/lib/seasons';
 import { orIlikeValue, buildQueryString } from '@/lib/form';
+import { sortBatches } from '@/lib/batches';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -78,7 +79,7 @@ export default async function JoinedStudentsPage({
           {superAdmin ? (
             <LocationBatchSelect
               locations={locations}
-              batches={batches ?? []}
+              batches={sortBatches(batches ?? [])}
               locationField="location"
               batchField="batch"
               defaultLocationId={params.location ?? ''}
