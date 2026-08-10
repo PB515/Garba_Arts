@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { claimLead } from '../actions';
+import { claimLead, revertLeadClaim } from '../actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
 import { orIlikeValue, buildQueryString, whatsappLink, fillTemplate } from '@/lib/form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { ClaimLeadButtons } from './claim-lead-buttons';
+import { RevertClaimButton } from './revert-claim-button';
 import { AddLeadForm } from './add-lead-form';
 import { WhatsAppMenu } from '../whatsapp-menu';
 
@@ -147,9 +148,20 @@ export default async function LeadsPage({
                         </td>
                         <td className="p-3">
                           {s.location_id ? (
-                            <span className="text-muted">{locationName.get(s.location_id) ?? '-'}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted">{locationName.get(s.location_id) ?? '-'}</span>
+                              <RevertClaimButton
+                                studentName={s.name}
+                                locationName={locationName.get(s.location_id) ?? 'this location'}
+                                onRevert={revertLeadClaim.bind(null, s.id)}
+                              />
+                            </div>
                           ) : (
-                            <ClaimLeadButtons locations={allLocations ?? []} onClaim={claimLead.bind(null, s.id)} />
+                            <ClaimLeadButtons
+                              studentName={s.name}
+                              locations={allLocations ?? []}
+                              onClaim={claimLead.bind(null, s.id)}
+                            />
                           )}
                         </td>
                       </tr>

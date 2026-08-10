@@ -605,6 +605,7 @@ export type Database = {
           whatsapp_number: string
         }[]
       }
+      revert_lead_claim: { Args: { p_student_id: string }; Returns: undefined }
       staff_location_id: { Args: never; Returns: string }
     }
     Enums: {

@@ -284,6 +284,50 @@ async function main(): Promise<void> {
     );
   }
 
+  // 0028: undoing a mistaken claim (e.g. Aalay staff meant to claim for
+  // Aalay but hit Sportsclub). Symmetric with claim_lead's "any real staff
+  // member, any role" authorization (0022) - proven here by having the
+  // Aalay admin revert a claim that Sportsclub currently owns, even though
+  // Aalay lost normal-table access to it the moment Sportsclub claimed it
+  // (the 0023 check just above). revert_lead_claim() is SECURITY DEFINER,
+  // so it isn't gated by the caller's own row-level visibility.
+  console.log(c.dim('\nrevert_lead_claim() undoes a mistaken claim - any staff may revert any claim, not just the location that owns it (0028)...'));
+  const revertByAalay = await aalay.rpc('revert_lead_claim', { p_student_id: seededLead.id });
+  check(
+    'Aalay admin can revert the lead even though Sportsclub currently owns it',
+    revertByAalay.error === null,
+    revertByAalay.error?.message
+  );
+  const { data: afterRevert } = await superAdmin
+    .from('students')
+    .select('location_id, batch_id')
+    .eq('id', seededLead.id)
+    .single();
+  check('location_id is cleared after revert', afterRevert?.location_id === null, JSON.stringify(afterRevert));
+  check(
+    "batch_id is also cleared after revert (0028 - a batch belongs to a specific location, so it'd be stale otherwise)",
+    afterRevert?.batch_id === null
+  );
+
+  const { data: aalaySeesItAgain } = await aalay.from('students').select('id').eq('id', seededLead.id);
+  check('Aalay admin sees it again via the normal table, now unclaimed', (aalaySeesItAgain?.length ?? 0) === 1);
+  const { data: sportsclubSeesItAgain } = await sportsclub.from('students').select('id').eq('id', seededLead.id);
+  check(
+    'Sportsclub admin also sees it again via the normal table, now unclaimed',
+    (sportsclubSeesItAgain?.length ?? 0) === 1
+  );
+
+  const revertAlreadyUnclaimed = await aalay.rpc('revert_lead_claim', { p_student_id: seededLead.id });
+  check('reverting an already-unclaimed lead is rejected, not silently a no-op', revertAlreadyUnclaimed.error !== null);
+
+  if (aalayOwn?.[0]?.id) {
+    const revertNonLead = await aalay.rpc('revert_lead_claim', { p_student_id: aalayOwn[0].id });
+    check(
+      'reverting a normal (non-Lead-origin) student is rejected - not a general "clear anyone\'s location" tool',
+      revertNonLead.error !== null
+    );
+  }
+
   console.log(c.dim('\ntriage_admin: sees the shared pool, can claim into EITHER location (0018/0019)...'));
   const { data: freshLead, error: freshLeadError } = await superAdmin
     .from('students')

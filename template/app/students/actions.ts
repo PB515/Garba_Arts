@@ -270,6 +270,25 @@ export async function claimLead(studentId: string, locationId: string): Promise<
 }
 
 /**
+ * Undoes a mistaken claim (0028) - e.g. an Aalay admin meant to claim for
+ * Aalay but hit "Claim for Sportsclub". Symmetric with claimLead: any real
+ * staff member may revert any claim, not just their own location's, same as
+ * claiming itself is already open to everyone. Routed through
+ * revert_lead_claim() rather than a raw update for the same reason claimLead
+ * is - the base students RLS policy can't safely express "any staff may
+ * clear any location" without also granting broader access than intended.
+ */
+export async function revertLeadClaim(studentId: string): Promise<void> {
+  const { supabase } = await requireUser();
+
+  const { error } = await supabase.rpc('revert_lead_claim', { p_student_id: studentId });
+  if (error) throw new Error(`Could not revert: ${error.message}`);
+
+  revalidatePath('/students/leads');
+  revalidatePath('/students');
+}
+
+/**
  * Fast one-click status change from the Inquiry list — no need to open the
  * detail page just to reclassify. Marking someone "joined" is hard-blocked
  * without a batch and a fee already set — the owner's stated assumption is
