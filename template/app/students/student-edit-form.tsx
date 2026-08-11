@@ -42,6 +42,8 @@ export function StudentEditForm({
     whatsapp_number: string | null;
     source: string | null;
     source_detail: string | null;
+    gender: string | null;
+    residential_area: string | null;
     status: string | null;
     location_id: string | null;
     batch_id: string | null;
@@ -102,6 +104,18 @@ export function StudentEditForm({
           <label className="text-sm">
             WhatsApp (if different)
             <input name="whatsapp_number" defaultValue={student.whatsapp_number ?? ''} className={FIELD_CLASS} />
+          </label>
+          <label className="text-sm">
+            Gender
+            <select name="gender" defaultValue={student.gender ?? ''} className={FIELD_CLASS}>
+              <option value="">-</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            Residential area
+            <input name="residential_area" defaultValue={student.residential_area ?? ''} className={FIELD_CLASS} />
           </label>
           <div className="col-span-2 text-sm">
             Source

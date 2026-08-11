@@ -487,6 +487,7 @@ export type Database = {
           deleted_by: string | null
           demo_fee_amount: number | null
           fee_total: number | null
+          gender: string | null
           id: string
           inquiry_date: string | null
           is_lead: boolean
@@ -494,6 +495,7 @@ export type Database = {
           name: string
           phone_number: string
           remarks: string | null
+          residential_area: string | null
           season_id: string
           source: string | null
           source_detail: string | null
@@ -510,6 +512,7 @@ export type Database = {
           deleted_by?: string | null
           demo_fee_amount?: number | null
           fee_total?: number | null
+          gender?: string | null
           id?: string
           inquiry_date?: string | null
           is_lead?: boolean
@@ -517,6 +520,7 @@ export type Database = {
           name: string
           phone_number: string
           remarks?: string | null
+          residential_area?: string | null
           season_id: string
           source?: string | null
           source_detail?: string | null
@@ -533,6 +537,7 @@ export type Database = {
           deleted_by?: string | null
           demo_fee_amount?: number | null
           fee_total?: number | null
+          gender?: string | null
           id?: string
           inquiry_date?: string | null
           is_lead?: boolean
@@ -540,6 +545,7 @@ export type Database = {
           name?: string
           phone_number?: string
           remarks?: string | null
+          residential_area?: string | null
           season_id?: string
           source?: string | null
           source_detail?: string | null

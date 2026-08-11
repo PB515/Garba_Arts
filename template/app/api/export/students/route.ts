@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('students')
     .select(
-      'id, name, phone_number, whatsapp_number, source, source_detail, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, remarks, created_at'
+      'id, name, phone_number, whatsapp_number, source, source_detail, gender, residential_area, status, location_id, batch_id, inquiry_date, fee_total, demo_fee_amount, remarks, created_at'
     )
     .is('deleted_at', null)
     .eq('season_id', season?.id ?? '')
@@ -95,6 +95,8 @@ export async function GET(request: NextRequest) {
     'WhatsApp',
     'Source',
     'Source detail',
+    'Gender',
+    'Residential area',
     'Status',
     'Location',
     'Batch',
@@ -125,6 +127,8 @@ export async function GET(request: NextRequest) {
       s.whatsapp_number ?? '',
       s.source ?? '',
       s.source_detail ?? '',
+      s.gender ?? '',
+      s.residential_area ?? '',
       s.status ?? '',
       s.location_id ? (locationName.get(s.location_id) ?? '') : '',
       s.batch_id ? (batchName.get(s.batch_id) ?? '') : '',

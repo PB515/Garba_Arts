@@ -27,6 +27,11 @@ export function AddLeadForm() {
       <input name="name" placeholder="Full Name" required className={FIELD_CLASS} />
       <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
       <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
+      <select name="gender" defaultValue="" className={FIELD_CLASS}>
+        <option value="">Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
       <SourceField className={FIELD_CLASS} />
       <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
       <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60">

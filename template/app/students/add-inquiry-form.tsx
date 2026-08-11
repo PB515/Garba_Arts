@@ -45,6 +45,7 @@ export function AddInquiryForm({
       <input name="name" placeholder="Full Name" required className={FIELD_CLASS} />
       <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
       <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
+      <input name="residential_area" placeholder="Residential area" className={FIELD_CLASS} />
       <SourceField className={FIELD_CLASS} />
       <LocationBatchSelect
         locations={locations}
