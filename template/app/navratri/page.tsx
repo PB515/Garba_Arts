@@ -1,4 +1,3 @@
-import { site } from '@/lib/site';
 import { HONEYPOT_FIELD } from '@/lib/security';
 import { currentNavratriTier } from '@/lib/navratri-config';
 import { submitRegistration } from './actions';
@@ -25,7 +24,7 @@ export default async function NavratriPage({
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 text-foreground">
       <div className="w-full max-w-md space-y-6">
         <div className="space-y-1 text-center">
-          <h1 className="font-display text-2xl font-semibold">{site.name}: Navratri Passes</h1>
+          <h1 className="font-display text-2xl font-semibold">The Garba Arts: Navratri Passes</h1>
           <p className="text-sm text-muted">Register your group for a pass. One person can register for everyone coming with them.</p>
         </div>
 
