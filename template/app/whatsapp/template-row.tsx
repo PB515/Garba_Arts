@@ -1,7 +1,7 @@
 'use client';
 import { useActionState, useState } from 'react';
 import { updateTemplate, deleteTemplate } from './actions';
-import { SubmitButton } from '@/app/students/submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -47,9 +47,7 @@ export function TemplateRow({ id, label, body }: { id: string; label: string; bo
             Edit
           </button>
           <form action={deleteTemplate.bind(null, id)}>
-            <button type="submit" className="text-red-600 underline">
-              Remove
-            </button>
+            <SubmitButton className="text-red-600 underline">Remove</SubmitButton>
           </form>
         </div>
       </div>

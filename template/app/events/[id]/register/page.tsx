@@ -4,6 +4,7 @@ import { HONEYPOT_FIELD } from '@/lib/security';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { submitEventRegistration } from './actions';
 import { AttendeeRows } from '../../attendee-rows';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -94,12 +95,9 @@ export default async function EventRegisterPage({
               </p>
             )}
 
-            <button
-              type="submit"
-              className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground"
-            >
+            <SubmitButton className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Register
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>

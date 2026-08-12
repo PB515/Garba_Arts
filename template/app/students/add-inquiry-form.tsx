@@ -10,7 +10,7 @@ import { useActionState } from 'react';
 import { createStudent } from './actions';
 import { LocationBatchSelect } from './location-batch-select';
 import { SourceField } from './source-field';
-import { SubmitButton } from './submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -46,7 +46,7 @@ export function AddInquiryForm({
       <input name="phone_number" placeholder="Phone" required className={FIELD_CLASS} />
       <input name="whatsapp_number" placeholder="WhatsApp (if different)" className={FIELD_CLASS} />
       <input name="residential_area" placeholder="Residential area" className={FIELD_CLASS} />
-      <SourceField className={FIELD_CLASS} />
+      <SourceField variant="inquiry" className={FIELD_CLASS} />
       <LocationBatchSelect
         locations={locations}
         batches={batches}
@@ -61,7 +61,7 @@ export function AddInquiryForm({
       <input
         name="demo_fee_amount"
         type="number"
-        step="0.01"
+        step="1"
         min="0"
         placeholder="Demo fee (small, optional)"
         className={FIELD_CLASS}

@@ -14,6 +14,7 @@ import {
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { RegistrationEditRow } from '../registration-edit-row';
 import { AttendeeRows } from '../attendee-rows';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -125,9 +126,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <input type="checkbox" name="public_registration_enabled" defaultChecked={event.public_registration_enabled} />
               Allow public self-registration for this event
             </label>
-            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+            <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Save
-            </button>
+            </SubmitButton>
           </form>
 
           {event.public_registration_enabled ? (
@@ -138,9 +139,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
           <div className="border-t border-border pt-3 text-sm">
             <form action={boundPermanentDelete}>
-              <button type="submit" className="text-red-600 underline">
+              <SubmitButton className="text-red-600 underline">
                 Permanently remove event (and its registrations)
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </section>
@@ -213,9 +214,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
           <AttendeeRows key={registrations?.length ?? 0} fieldClass={FIELD_CLASS} />
           <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
-          <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+          <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
             Add
-          </button>
+          </SubmitButton>
         </form>
       </section>
 

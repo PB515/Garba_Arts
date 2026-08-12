@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { InstallButton } from '@/lib/pwa/install-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 interface NavLinkItem {
   href: string;
@@ -45,9 +46,7 @@ export function AppHeader({
           <InstallButton />
           <form action={signOutAction} className="flex items-center gap-3">
             <span className="text-sm text-muted">{userEmail}</span>
-            <button type="submit" className="text-sm underline">
-              Sign out
-            </button>
+            <SubmitButton className="text-sm underline">Sign out</SubmitButton>
           </form>
         </div>
 
@@ -87,9 +86,9 @@ export function AppHeader({
             <span className="text-sm text-muted">{userEmail}</span>
           </div>
           <form action={signOutAction}>
-            <button type="submit" className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
+            <SubmitButton className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm">
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : null}

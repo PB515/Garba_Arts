@@ -40,7 +40,7 @@ export default async function FeesPage({
       .eq('season_id', season?.id ?? ''),
     supabase
       .from('payments')
-      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
+      .select('id, student_id, amount, mode, cash_amount, upi_amount, upi_transaction_id, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
     supabase.from('locations').select('id, name').order('name'),
@@ -262,6 +262,7 @@ export default async function FeesPage({
                     <th className="p-3">Batch</th>
                     <th className="p-3">Type</th>
                     <th className="p-3">Mode</th>
+                    <th className="p-3">UPI txn ID</th>
                     <th className="p-3">Amount</th>
                     <th className="p-3">Remarks</th>
                   </tr>
@@ -281,6 +282,7 @@ export default async function FeesPage({
                         <td className="p-3">{student?.batch_id ? batchName.get(student.batch_id) : '-'}</td>
                         <td className="p-3">{p.payment_type === 'demo' ? 'Demo' : 'Main'}</td>
                         <td className="p-3">{paymentModeLabel(p.mode)}</td>
+                        <td className="p-3">{p.upi_transaction_id ?? '-'}</td>
                         <td className="p-3">{p.amount.toFixed(2)}</td>
                         <td className="p-3">{p.remarks ?? '-'}</td>
                       </tr>

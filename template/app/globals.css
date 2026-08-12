@@ -59,3 +59,16 @@ body {
   color: var(--foreground);
   font-family: var(--font-body);
 }
+
+/* Amount fields deal in whole rupees only (decision #82 - "we deal in 100s
+   not in paisa"). Hiding the native up/down spinner isn't reachable with
+   plain Tailwind utilities, since it's a pseudo-element in WebKit and a
+   distinct appearance mode in Firefox. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

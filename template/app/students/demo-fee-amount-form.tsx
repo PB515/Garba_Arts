@@ -2,7 +2,7 @@
 /** Same as fee-total-form.tsx, for the Demo fee box's own amount. */
 import { useActionState } from 'react';
 import { updateDemoFeeAmount } from './actions';
-import { SubmitButton } from './submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -21,7 +21,7 @@ export function DemoFeeAmountForm({ studentId, demoFeeAmount }: { studentId: str
         <input
           name="demo_fee_amount"
           type="number"
-          step="0.01"
+          step="1"
           min="0"
           defaultValue={demoFeeAmount ?? ''}
           className={`mt-1 ${FIELD_CLASS}`}

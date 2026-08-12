@@ -6,6 +6,9 @@
  * a genuine second insert - not a framework bug, just nothing stopping a
  * real double-submit. `useFormStatus` only works as a child of the <form>
  * it reports on, hence its own small component rather than inline state.
+ * Originally lived under app/students/ (where the bug was first found);
+ * moved here (decision #80) once the owner asked for the same protection on
+ * every submit button site-wide, not just the students forms.
  */
 import { useFormStatus } from 'react-dom';
 

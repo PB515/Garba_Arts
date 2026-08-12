@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AttendeeRows } from './attendee-rows';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -68,14 +69,10 @@ export function RegistrationEditRow({
               Edit
             </button>
             <form action={archiveAction}>
-              <button type="submit" className="underline">
-                Archive
-              </button>
+              <SubmitButton className="underline">Archive</SubmitButton>
             </form>
             <form action={removeAction}>
-              <button type="submit" className="text-red-600 underline">
-                Remove
-              </button>
+              <SubmitButton className="text-red-600 underline">Remove</SubmitButton>
             </form>
           </div>
         </td>
@@ -142,9 +139,9 @@ export function RegistrationEditRow({
             className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`}
           />
           <div className="col-span-2 flex gap-3 sm:col-span-4">
-            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+            <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Save
-            </button>
+            </SubmitButton>
             <button
               type="button"
               onClick={() => setEditing(false)}

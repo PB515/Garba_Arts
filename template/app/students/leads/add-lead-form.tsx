@@ -10,7 +10,7 @@
 import { useActionState } from 'react';
 import { createLead } from '../actions';
 import { SourceField } from '../source-field';
-import { SubmitButton } from '../submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -32,7 +32,7 @@ export function AddLeadForm() {
         <option value="male">Male</option>
         <option value="female">Female</option>
       </select>
-      <SourceField className={FIELD_CLASS} />
+      <SourceField variant="lead" className={FIELD_CLASS} />
       <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
       <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60">
         Add

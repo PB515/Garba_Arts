@@ -381,6 +381,7 @@ export type Database = {
           remarks: string | null
           student_id: string
           upi_amount: number | null
+          upi_transaction_id: string | null
         }
         Insert: {
           amount: number
@@ -396,6 +397,7 @@ export type Database = {
           remarks?: string | null
           student_id: string
           upi_amount?: number | null
+          upi_transaction_id?: string | null
         }
         Update: {
           amount?: number
@@ -411,6 +413,7 @@ export type Database = {
           remarks?: string | null
           student_id?: string
           upi_amount?: number | null
+          upi_transaction_id?: string | null
         }
         Relationships: [
           {

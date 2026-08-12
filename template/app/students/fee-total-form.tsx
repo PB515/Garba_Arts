@@ -6,7 +6,7 @@
  */
 import { useActionState } from 'react';
 import { updateFeeTotal } from './actions';
-import { SubmitButton } from './submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -25,7 +25,7 @@ export function FeeTotalForm({ studentId, feeTotal }: { studentId: string; feeTo
         <input
           name="fee_total"
           type="number"
-          step="0.01"
+          step="1"
           min="0"
           defaultValue={feeTotal ?? ''}
           className={`mt-1 ${FIELD_CLASS}`}

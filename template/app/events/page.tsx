@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createEvent } from './actions';
 import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -41,9 +42,9 @@ export default async function EventsPage() {
             <input name="name" placeholder="Event name" required className={FIELD_CLASS} />
             <input name="event_date" type="date" className={FIELD_CLASS} />
             <input name="description" placeholder="Description" className={`col-span-2 ${FIELD_CLASS}`} />
-            <button type="submit" className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
+            <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Add
-            </button>
+            </SubmitButton>
           </form>
         </section>
 

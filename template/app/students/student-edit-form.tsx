@@ -15,7 +15,7 @@ import { updateStudent } from './actions';
 import { STATUS_OPTIONS, statusLabel } from '@/lib/status';
 import { LocationBatchSelect } from './location-batch-select';
 import { SourceField } from './source-field';
-import { SubmitButton } from './submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'mt-1 w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 
@@ -121,6 +121,7 @@ export function StudentEditForm({
             Source
             <div className="mt-1 grid grid-cols-2 gap-3">
               <SourceField
+                variant={student.location_id ? 'inquiry' : 'lead'}
                 defaultSource={student.source ?? ''}
                 defaultSourceDetail={student.source_detail ?? ''}
                 className="w-full rounded-[var(--radius)] border border-border px-3 py-2 text-sm"

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const [{ data: payments, error }, { data: students }, { data: locations }, { data: batches }] = await Promise.all([
     supabase
       .from('payments')
-      .select('id, student_id, amount, mode, cash_amount, upi_amount, paid_date, payment_type, remarks')
+      .select('id, student_id, amount, mode, cash_amount, upi_amount, upi_transaction_id, paid_date, payment_type, remarks')
       .is('deleted_at', null)
       .order('paid_date', { ascending: false }),
     supabase.from('students').select('id, name, location_id, batch_id').is('deleted_at', null).eq('season_id', season?.id ?? ''),
@@ -65,7 +65,19 @@ export async function GET(request: NextRequest) {
     return true;
   });
 
-  const header = ['Date', 'Student', 'Location', 'Batch', 'Type', 'Mode', 'Cash amount', 'UPI amount', 'Amount', 'Remarks'];
+  const header = [
+    'Date',
+    'Student',
+    'Location',
+    'Batch',
+    'Type',
+    'Mode',
+    'Cash amount',
+    'UPI amount',
+    'UPI transaction ID',
+    'Amount',
+    'Remarks',
+  ];
 
   const rows = filteredPayments.map((p) => {
     const student = studentById.get(p.student_id);
@@ -78,6 +90,7 @@ export async function GET(request: NextRequest) {
       paymentModeLabel(p.mode),
       p.cash_amount ?? '',
       p.upi_amount ?? '',
+      p.upi_transaction_id ?? '',
       p.amount,
       p.remarks ?? '',
     ];

@@ -1,5 +1,6 @@
 import { signIn } from './actions';
 import { site } from '@/lib/site';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 export default async function LoginPage({
   searchParams,
@@ -65,12 +66,9 @@ export default async function LoginPage({
             </p>
           )}
 
-          <button
-            type="submit"
-            className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground"
-          >
+          <SubmitButton className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
             Sign in
-          </button>
+          </SubmitButton>
         </form>
 
         <p className="text-center text-xs text-muted">

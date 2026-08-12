@@ -1,7 +1,7 @@
 'use client';
 import { useActionState } from 'react';
 import { createTemplate } from './actions';
-import { SubmitButton } from '@/app/students/submit-button';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
 

@@ -2,41 +2,61 @@
 
 import { useState } from 'react';
 
+const LEAD_OPTIONS: [string, string][] = [
+  ['society', 'Society'],
+  ['corporate', 'Corporate'],
+  ['navrangpura', 'Navrangpura'],
+  ['aalay', 'Aalay'],
+];
+
+const INQUIRY_OPTIONS: [string, string][] = [
+  ['whatsapp', 'WhatsApp'],
+  ['instagram', 'Instagram'],
+  ['referral', 'Referral'],
+  ['walk-in', 'Walk-in'],
+];
+
 /**
- * Source dropdown + an optional detail field. Originally only appeared for
- * source = referral ("who referred them"); the owner asked for the same
- * mechanic on every source so any of them can carry extra context (which
- * Instagram post, which WhatsApp group, who spoke to them at a walk-in,
- * etc.) — one generic field, not a different one per source.
+ * Source dropdown + an optional detail field. Originally one shared list for
+ * both Lead and Inquiry; split per-context (decision #80) since the two
+ * stages track genuinely different things - Lead is "where did this call
+ * come from" (Society/Corporate/Navrangpura/Aalay), Inquiry is "which
+ * channel" (WhatsApp/Instagram/Referral/Walk-in). `variant` picks which list
+ * renders; the detail field stays generic either way (the owner's earlier
+ * ask - one field, not a different one per source, so any of them can carry
+ * extra context).
  */
 export function SourceField({
+  variant,
   defaultSource = '',
   defaultSourceDetail = '',
   className,
 }: {
+  variant: 'lead' | 'inquiry';
   defaultSource?: string;
   defaultSourceDetail?: string;
   className?: string;
 }) {
   const [source, setSource] = useState(defaultSource);
+  const options = variant === 'lead' ? LEAD_OPTIONS : INQUIRY_OPTIONS;
+  // A record's stored value might not be in this variant's list (e.g. it was
+  // set under the other variant, or it's an old placeholder value) - render
+  // it anyway rather than silently dropping it from view.
+  const knownValues = new Set(options.map(([value]) => value));
+  knownValues.add('other');
 
   return (
     <>
       <select name="source" value={source} onChange={(e) => setSource(e.target.value)} className={className}>
         <option value="">Source</option>
-        <option value="whatsapp">WhatsApp</option>
-        <option value="instagram">Instagram</option>
-        <option value="referral">Referral</option>
-        <option value="walk-in">Walk-in</option>
-        <option value="society">Society</option>
-        <option value="corporate">Corporate</option>
-        {/* Placeholder: owner said 4 more categories exist but hasn't given
-            the real list yet. Loudly marked so these never get mistaken for
-            confirmed values; swap in the real ones, don't just relabel these. */}
-        <option value="placeholder-1">[Placeholder source 1, TBD]</option>
-        <option value="placeholder-2">[Placeholder source 2, TBD]</option>
-        <option value="placeholder-3">[Placeholder source 3, TBD]</option>
-        <option value="placeholder-4">[Placeholder source 4, TBD]</option>
+        {options.map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+        {defaultSource && !knownValues.has(defaultSource) ? (
+          <option value={defaultSource}>{defaultSource}</option>
+        ) : null}
         <option value="other">Other</option>
       </select>
       {source ? (

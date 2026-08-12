@@ -2,6 +2,7 @@ import { site } from '@/lib/site';
 import { HONEYPOT_FIELD } from '@/lib/security';
 import { currentNavratriTier } from '@/lib/navratri-config';
 import { submitRegistration } from './actions';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 export default async function NavratriPage({
   searchParams,
@@ -106,12 +107,9 @@ export default async function NavratriPage({
                 </p>
               )}
 
-              <button
-                type="submit"
-                className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground"
-              >
+              <SubmitButton className="w-full rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
                 Register
-              </button>
+              </SubmitButton>
             </form>
           </>
         )}

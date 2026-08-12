@@ -3,6 +3,7 @@ import { AppShell } from '@/app/app-shell';
 import { EmptyState } from '@/lib/patterns/empty-state';
 import { currentNavratriTier } from '@/lib/navratri-config';
 import { updateAmountPaid, archiveRegistration, permanentlyDeleteRegistration } from './actions';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 export default async function NavratriAdminPage() {
   const supabase = await createClient();
@@ -87,23 +88,17 @@ export default async function NavratriAdminPage() {
                             defaultValue={r.amount_paid}
                             className="w-20 rounded-[var(--radius)] border border-border px-2 py-1 text-sm"
                           />
-                          <button type="submit" className="underline">
-                            Save
-                          </button>
+                          <SubmitButton className="underline">Save</SubmitButton>
                         </form>
                       </td>
                       <td className="p-3">{r.remarks ?? '-'}</td>
                       <td className="p-3">
                         <div className="flex gap-3">
                           <form action={archiveRegistration.bind(null, r.id)}>
-                            <button type="submit" className="underline">
-                              Archive
-                            </button>
+                            <SubmitButton className="underline">Archive</SubmitButton>
                           </form>
                           <form action={permanentlyDeleteRegistration.bind(null, r.id)}>
-                            <button type="submit" className="text-red-600 underline">
-                              Remove
-                            </button>
+                            <SubmitButton className="text-red-600 underline">Remove</SubmitButton>
                           </form>
                         </div>
                       </td>

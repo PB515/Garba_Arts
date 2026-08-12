@@ -10,6 +10,7 @@ import { PaymentLogForm } from '../payment-log-form';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
 import { paymentModeLabel } from '@/lib/fee-status';
 import { sortBatches } from '@/lib/batches';
+import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const BACK_TARGETS = {
   leads: { href: '/students/leads', active: 'leads' as const, label: 'Back to leads' },
@@ -88,9 +89,7 @@ export default async function StudentDetailPage({
         <div className="mb-4 flex items-center justify-between rounded-[var(--radius)] border border-border bg-muted/10 p-3 text-sm">
           <span>This record is archived.</span>
           <form action={boundRestore}>
-            <button type="submit" className="underline">
-              Restore
-            </button>
+            <SubmitButton className="underline">Restore</SubmitButton>
           </form>
         </div>
       ) : null}
@@ -103,15 +102,11 @@ export default async function StudentDetailPage({
           <div className="flex gap-4 border-t border-border pt-3 text-sm">
             {!student.deleted_at ? (
               <form action={boundArchive}>
-                <button type="submit" className="underline">
-                  Archive
-                </button>
+                <SubmitButton className="underline">Archive</SubmitButton>
               </form>
             ) : null}
             <form action={boundPermanentDelete}>
-              <button type="submit" className="text-red-600 underline">
-                Permanently remove
-              </button>
+              <SubmitButton className="text-red-600 underline">Permanently remove</SubmitButton>
             </form>
           </div>
         </section>
@@ -135,7 +130,7 @@ export default async function StudentDetailPage({
               </div>
             </dl>
 
-            <PaymentLogForm studentId={id} paymentType="main" />
+            <PaymentLogForm studentId={id} paymentType="main" totalIsSet={student.fee_total !== null} />
           </div>
 
           <div className="space-y-3 rounded-[var(--radius)] border border-border p-4">
@@ -156,7 +151,7 @@ export default async function StudentDetailPage({
               </div>
             </dl>
 
-            <PaymentLogForm studentId={id} paymentType="demo" />
+            <PaymentLogForm studentId={id} paymentType="demo" totalIsSet={student.demo_fee_amount !== null} />
           </div>
 
           <div className="rounded-[var(--radius)] border border-border p-4">
@@ -170,18 +165,15 @@ export default async function StudentDetailPage({
                     <span>
                       {p.paid_date} · {paymentModeLabel(p.mode)} · {p.amount.toFixed(2)}
                       {p.payment_type === 'demo' ? ' · Demo' : ''}
+                      {p.upi_transaction_id ? ` · UPI: ${p.upi_transaction_id}` : ''}
                       {p.remarks ? ` · ${p.remarks}` : ''}
                     </span>
                     <span className="flex gap-3">
                       <form action={archivePayment.bind(null, p.id, id)}>
-                        <button type="submit" className="underline">
-                          Archive
-                        </button>
+                        <SubmitButton className="underline">Archive</SubmitButton>
                       </form>
                       <form action={permanentlyDeletePayment.bind(null, p.id, id)}>
-                        <button type="submit" className="text-red-600 underline">
-                          Remove
-                        </button>
+                        <SubmitButton className="text-red-600 underline">Remove</SubmitButton>
                       </form>
                     </span>
                   </li>

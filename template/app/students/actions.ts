@@ -61,6 +61,12 @@ export async function createStudent(
   if ((fee_total !== null && fee_total < 0) || (demo_fee_amount !== null && demo_fee_amount < 0)) {
     return { error: 'Fee amounts cannot be negative.' };
   }
+  if (
+    (fee_total !== null && !Number.isInteger(fee_total)) ||
+    (demo_fee_amount !== null && !Number.isInteger(demo_fee_amount))
+  ) {
+    return { error: 'Fee amounts must be whole numbers.' };
+  }
 
   const season = await getCurrentSeason(supabase);
   if (!season) return { error: 'No current season is set - contact the owner before adding anyone.' };
@@ -211,6 +217,7 @@ export async function updateFeeTotal(
 
   const fee_total = num(formData, 'fee_total');
   if (fee_total !== null && fee_total < 0) return { error: 'Fee total cannot be negative.' };
+  if (fee_total !== null && !Number.isInteger(fee_total)) return { error: 'Fee total must be a whole number.' };
 
   const { error } = await supabase
     .from('students')
@@ -234,6 +241,9 @@ export async function updateDemoFeeAmount(
 
   const demo_fee_amount = num(formData, 'demo_fee_amount');
   if (demo_fee_amount !== null && demo_fee_amount < 0) return { error: 'Demo fee amount cannot be negative.' };
+  if (demo_fee_amount !== null && !Number.isInteger(demo_fee_amount)) {
+    return { error: 'Demo fee amount must be a whole number.' };
+  }
 
   const { error } = await supabase
     .from('students')
@@ -404,9 +414,29 @@ export async function addPayment(
   if (!mode || !paid_date) return { error: 'Mode and date are required.' };
   const payment_type = str(formData, 'payment_type') === 'demo' ? 'demo' : 'main';
 
+  // A payment can't be logged toward a total that hasn't been set yet
+  // (decision #82) - the owner's direct ask, since a payment with nothing to
+  // reconcile against was easy to log by mistake before this existed.
+  const { data: student } = await supabase
+    .from('students')
+    .select('fee_total, demo_fee_amount')
+    .eq('id', studentId)
+    .single();
+  const relevantTotal = payment_type === 'demo' ? student?.demo_fee_amount : student?.fee_total;
+  if (relevantTotal === null || relevantTotal === undefined) {
+    return {
+      error:
+        payment_type === 'demo'
+          ? 'Set the Demo fee amount before logging a payment.'
+          : 'Set the Fee total before logging a payment.',
+    };
+  }
+
   // Cash + UPI (split) stores the two real amounts, not just a combined
   // figure, so the Fees tab can reconcile Total Cash / Total UPI against
   // the grand total. Plain cash/upi keeps the single "amount" field.
+  // Amounts are whole rupees only (decision #82 - "we deal in 100s not in
+  // paisa"), enforced server-side too, not just the input's step attribute.
   let amount: number | null;
   let cash_amount: number | null = null;
   let upi_amount: number | null = null;
@@ -416,11 +446,20 @@ export async function addPayment(
     if (!cash_amount || cash_amount <= 0 || !upi_amount || upi_amount <= 0) {
       return { error: 'Both cash amount and UPI amount are required for a split payment.' };
     }
+    if (!Number.isInteger(cash_amount) || !Number.isInteger(upi_amount)) {
+      return { error: 'Amounts must be whole numbers.' };
+    }
     amount = cash_amount + upi_amount;
   } else {
     amount = num(formData, 'amount');
     if (!amount || amount <= 0) return { error: 'Amount is required.' };
+    if (!Number.isInteger(amount)) return { error: 'Amount must be a whole number.' };
   }
+
+  // Optional (the owner's explicit call) - staff may not have the UPI
+  // transaction ID on hand yet and should still be able to log the payment
+  // now, adding it later. Only relevant when UPI is part of the payment.
+  const upi_transaction_id = mode === 'cash' ? null : str(formData, 'upi_transaction_id');
 
   const { error } = await supabase.from('payments').insert({
     student_id: studentId,
@@ -428,6 +467,7 @@ export async function addPayment(
     mode,
     cash_amount,
     upi_amount,
+    upi_transaction_id,
     paid_date,
     payment_type,
     remarks: str(formData, 'remarks'),
