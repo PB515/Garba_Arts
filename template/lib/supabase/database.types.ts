@@ -162,9 +162,138 @@ export type Database = {
           },
         ]
       }
+      event_broadcast_sends: {
+        Row: {
+          broadcast_id: string
+          id: string
+          registration_id: string
+          sent_at: string
+          sent_by: string
+        }
+        Insert: {
+          broadcast_id: string
+          id?: string
+          registration_id: string
+          sent_at?: string
+          sent_by: string
+        }
+        Update: {
+          broadcast_id?: string
+          id?: string
+          registration_id?: string
+          sent_at?: string
+          sent_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_broadcast_sends_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "event_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_broadcast_sends_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "event_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_broadcasts: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_id: string
+          id: string
+          label: string
+          message: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_id: string
+          id?: string
+          label: string
+          message: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          id?: string
+          label?: string
+          message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_broadcasts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_payments: {
+        Row: {
+          amount: number
+          cash_amount: number | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          mode: string
+          paid_date: string
+          registration_id: string
+          remarks: string | null
+          upi_amount: number | null
+          upi_transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          cash_amount?: number | null
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          mode: string
+          paid_date: string
+          registration_id: string
+          remarks?: string | null
+          upi_amount?: number | null
+          upi_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cash_amount?: number | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          mode?: string
+          paid_date?: string
+          registration_id?: string
+          remarks?: string | null
+          upi_amount?: number | null
+          upi_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "event_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
-          amount_paid: number
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -180,7 +309,6 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          amount_paid?: number
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -196,7 +324,6 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          amount_paid?: number
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -235,9 +362,13 @@ export type Database = {
           created_by: string
           description: string | null
           event_date: string | null
+          fee_per_person: number | null
           id: string
           name: string
           public_registration_enabled: boolean
+          show_in_gallery: boolean
+          slug: string
+          venue: string | null
         }
         Insert: {
           banner_image_url?: string | null
@@ -245,9 +376,13 @@ export type Database = {
           created_by: string
           description?: string | null
           event_date?: string | null
+          fee_per_person?: number | null
           id?: string
           name: string
           public_registration_enabled?: boolean
+          show_in_gallery?: boolean
+          slug: string
+          venue?: string | null
         }
         Update: {
           banner_image_url?: string | null
@@ -255,9 +390,13 @@ export type Database = {
           created_by?: string
           description?: string | null
           event_date?: string | null
+          fee_per_person?: number | null
           id?: string
           name?: string
           public_registration_enabled?: boolean
+          show_in_gallery?: boolean
+          slug?: string
+          venue?: string | null
         }
         Relationships: []
       }

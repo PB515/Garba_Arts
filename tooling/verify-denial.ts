@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 
   const { data: event, error: eventErr } = await svc
     .from('events')
-    .insert({ name: 'verify-denial-event', created_by: seedUserId })
+    .insert({ name: 'verify-denial-event', slug: `verify-denial-event-${Date.now()}`, created_by: seedUserId })
     .select()
     .single();
   if (eventErr || !event) throw new Error(`seed events failed: ${eventErr?.message}`);
@@ -132,6 +132,27 @@ async function main(): Promise<void> {
     .select()
     .single();
   if (attendeeErr || !attendee) throw new Error(`seed event_attendees failed: ${attendeeErr?.message}`);
+
+  const { data: eventPayment, error: eventPaymentErr } = await svc
+    .from('event_payments')
+    .insert({ registration_id: registration.id, amount: 1, mode: 'cash', paid_date: '2026-01-01', created_by: seedUserId })
+    .select()
+    .single();
+  if (eventPaymentErr || !eventPayment) throw new Error(`seed event_payments failed: ${eventPaymentErr?.message}`);
+
+  const { data: broadcast, error: broadcastErr } = await svc
+    .from('event_broadcasts')
+    .insert({ event_id: event.id, label: 'verify-denial-broadcast', message: 'hi {name}', created_by: seedUserId })
+    .select()
+    .single();
+  if (broadcastErr || !broadcast) throw new Error(`seed event_broadcasts failed: ${broadcastErr?.message}`);
+
+  const { data: broadcastSend, error: broadcastSendErr } = await svc
+    .from('event_broadcast_sends')
+    .insert({ broadcast_id: broadcast.id, registration_id: registration.id, sent_by: seedUserId })
+    .select()
+    .single();
+  if (broadcastSendErr || !broadcastSend) throw new Error(`seed event_broadcast_sends failed: ${broadcastSendErr?.message}`);
 
   const { data: navratriReg, error: navratriErr } = await svc
     .from('navratri_registrations')
@@ -232,6 +253,30 @@ async function main(): Promise<void> {
     .insert({ registration_id: registration.id, name: 'anon-should-fail' });
   check('insert is rejected', attendeeInsert.error !== null, 'insert succeeded — RLS hole');
 
+  console.log('event_payments (0033 - inherits scoping from its parent registration, same pattern as event_attendees):');
+  const eventPaymentSelect = await anon.from('event_payments').select('*').eq('id', eventPayment.id);
+  check('select returns no rows', (eventPaymentSelect.data?.length ?? 0) === 0, JSON.stringify(eventPaymentSelect.data));
+  const eventPaymentInsert = await anon
+    .from('event_payments')
+    .insert({ registration_id: registration.id, amount: 1, mode: 'cash', paid_date: '2026-01-01' });
+  check('insert is rejected', eventPaymentInsert.error !== null, 'insert succeeded — RLS hole');
+
+  console.log('event_broadcasts (0034 - flat, same as events itself):');
+  const broadcastSelect = await anon.from('event_broadcasts').select('*').eq('id', broadcast.id);
+  check('select returns no rows', (broadcastSelect.data?.length ?? 0) === 0, JSON.stringify(broadcastSelect.data));
+  const broadcastInsert = await anon
+    .from('event_broadcasts')
+    .insert({ event_id: event.id, label: 'anon-should-fail', message: 'x' });
+  check('insert is rejected', broadcastInsert.error !== null, 'insert succeeded — RLS hole');
+
+  console.log('event_broadcast_sends (0034 - inherits scoping from its parent registration):');
+  const broadcastSendSelect = await anon.from('event_broadcast_sends').select('*').eq('id', broadcastSend.id);
+  check('select returns no rows', (broadcastSendSelect.data?.length ?? 0) === 0, JSON.stringify(broadcastSendSelect.data));
+  const broadcastSendInsert = await anon
+    .from('event_broadcast_sends')
+    .insert({ broadcast_id: broadcast.id, registration_id: registration.id });
+  check('insert is rejected', broadcastSendInsert.error !== null, 'insert succeeded — RLS hole');
+
   console.log('navratri_registrations (public /navratri page writes via service-role only, not a direct anon grant):');
   const navratriSelect = await anon.from('navratri_registrations').select('*').eq('id', navratriReg.id);
   check('select returns no rows', (navratriSelect.data?.length ?? 0) === 0, JSON.stringify(navratriSelect.data));
@@ -258,6 +303,9 @@ async function main(): Promise<void> {
   await svc.from('message_templates').delete().eq('id', template.id);
   await svc.from('navratri_registrations').delete().eq('id', navratriReg.id);
   await svc.from('event_attendees').delete().eq('id', attendee.id);
+  await svc.from('event_payments').delete().eq('id', eventPayment.id);
+  await svc.from('event_broadcast_sends').delete().eq('id', broadcastSend.id);
+  await svc.from('event_broadcasts').delete().eq('id', broadcast.id);
   await svc.from('event_registrations').delete().eq('id', registration.id);
   await svc.from('events').delete().eq('id', event.id);
   await svc.from('payments').delete().eq('id', payment.id);

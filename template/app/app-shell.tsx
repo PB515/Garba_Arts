@@ -8,7 +8,7 @@ export async function AppShell({
   userEmail,
   children,
 }: {
-  active: 'dashboard' | 'leads' | 'inquiry' | 'joined' | 'fees' | 'events' | 'navratri' | 'seasons' | 'whatsapp';
+  active: 'dashboard' | 'leads' | 'inquiry' | 'joined' | 'fees' | 'events' | 'event-fees' | 'navratri' | 'seasons' | 'whatsapp';
   userEmail: string | undefined;
   children: React.ReactNode;
 }) {
@@ -34,6 +34,7 @@ export async function AppShell({
           { href: '/students/joined', label: 'Joined', active: active === 'joined' },
           ...(superAdmin ? [{ href: '/fees', label: 'Fees', active: active === 'fees' }] : []),
           { href: '/events', label: 'Events', active: active === 'events' },
+          ...(superAdmin ? [{ href: '/events/fees', label: 'Event Fees', active: active === 'event-fees' }] : []),
           { href: '/navratri-admin', label: 'Navratri', active: active === 'navratri' },
           ...(superAdmin ? [{ href: '/seasons', label: 'Seasons', active: active === 'seasons' }] : []),
         ]

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AttendeeRows } from './attendee-rows';
+import { EventPaymentLog } from './event-payment-log';
 import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
@@ -17,7 +18,6 @@ interface Registration {
   registrant_phone: string | null;
   location_id: string | null;
   fee_amount: number | null;
-  amount_paid: number;
   remarks: string | null;
 }
 
@@ -25,6 +25,14 @@ interface Attendee {
   name: string;
   phone: string;
   whatsapp: string;
+}
+
+interface EventPayment {
+  id: string;
+  amount: number;
+  mode: string;
+  upi_transaction_id: string | null;
+  paid_date: string;
 }
 
 /**
@@ -38,6 +46,9 @@ export function RegistrationEditRow({
   attendees,
   locations,
   locationLabel,
+  payments,
+  addPaymentAction,
+  removePaymentAction,
   updateAction,
   archiveAction,
   removeAction,
@@ -46,11 +57,15 @@ export function RegistrationEditRow({
   attendees: Attendee[];
   locations: Loc[];
   locationLabel: string;
+  payments: EventPayment[];
+  addPaymentAction: (prevState: { error: string } | null, formData: FormData) => Promise<{ error: string } | null>;
+  removePaymentAction: (paymentId: string) => Promise<void>;
   updateAction: (formData: FormData) => Promise<void>;
   archiveAction: () => Promise<void>;
   removeAction: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
   if (!editing) {
     return (
@@ -61,7 +76,14 @@ export function RegistrationEditRow({
         <td className="p-3">{attendees.length ? attendees.map((a) => a.name).join(', ') : '-'}</td>
         <td className="p-3">{1 + attendees.length}</td>
         <td className="p-3">{registration.fee_amount !== null ? registration.fee_amount.toFixed(2) : '-'}</td>
-        <td className="p-3">{registration.amount_paid.toFixed(2)}</td>
+        <td className="p-3">
+          <EventPaymentLog
+            payments={payments}
+            totalPaid={totalPaid}
+            addAction={addPaymentAction}
+            removeAction={removePaymentAction}
+          />
+        </td>
         <td className="p-3">{registration.remarks ?? '-'}</td>
         <td className="p-3">
           <div className="flex gap-3">
@@ -120,15 +142,6 @@ export function RegistrationEditRow({
             min="0"
             defaultValue={registration.fee_amount ?? ''}
             placeholder="Fee (leave blank if free)"
-            className={FIELD_CLASS}
-          />
-          <input
-            name="amount_paid"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={registration.amount_paid}
-            placeholder="Amount paid"
             className={FIELD_CLASS}
           />
           <AttendeeRows fieldClass={FIELD_CLASS} initialAttendees={attendees} />

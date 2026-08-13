@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/app/app-shell';
@@ -10,13 +11,33 @@ import {
   updateRegistration,
   archiveRegistration,
   permanentlyDeleteRegistration,
+  addEventPayment,
+  permanentlyDeleteEventPayment,
+  createEventBroadcast,
+  permanentlyDeleteEventBroadcast,
+  markBroadcastSent,
+  unmarkBroadcastSent,
 } from '../actions';
 import { getStaffRole, isSuperAdmin } from '@/lib/roles';
+import { fillEventTemplate, whatsappLink } from '@/lib/form';
 import { RegistrationEditRow } from '../registration-edit-row';
-import { AttendeeRows } from '../attendee-rows';
+import { RegistrationFeeFields } from '../registration-fee-fields';
+import { BroadcastPanel } from '../broadcast-panel';
+import { NewBroadcastForm } from '../new-broadcast-form';
 import { SubmitButton } from '@/lib/patterns/submit-button';
 
 const FIELD_CLASS = 'rounded-[var(--radius)] border border-border px-3 py-2 text-sm';
+
+interface EventPaymentRow {
+  id: string;
+  registration_id: string;
+  amount: number;
+  mode: string;
+  cash_amount: number | null;
+  upi_amount: number | null;
+  upi_transaction_id: string | null;
+  paid_date: string;
+}
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -41,6 +62,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   ]);
 
   if (error || !event) notFound();
+
+  // Full absolute URL, not a bare relative path - a relative path pasted
+  // into a browser's address/search bar has no domain to resolve against
+  // and silently becomes a Google search instead of navigating (found live).
+  const h = await headers();
+  const origin = `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('host')}`;
+  const shortLink = `${origin}/e/${event.slug}`;
 
   // A location_admin only ever has one real choice, so the registration
   // form's location field ends up with a single, effectively-locked option -
@@ -70,6 +98,41 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     attendeesByRegistration.set(a.registration_id, list);
   }
 
+  // Payments now come from a real log (event_payments, decision #86), not a
+  // single flat amount_paid number - same "similar treatment as students"
+  // shape as the payments table, so a group's total can be built up over
+  // multiple sittings and the new Event Fees tab can show a real breakdown.
+  const { data: eventPayments } = registrationIds.length
+    ? await supabase
+        .from('event_payments')
+        .select('id, registration_id, amount, mode, cash_amount, upi_amount, upi_transaction_id, paid_date')
+        .in('registration_id', registrationIds)
+        .is('deleted_at', null)
+        .order('paid_date', { ascending: false })
+    : { data: [] as EventPaymentRow[] };
+
+  const paymentsByRegistration = new Map<string, EventPaymentRow[]>();
+  for (const p of eventPayments ?? []) {
+    const list = paymentsByRegistration.get(p.registration_id) ?? [];
+    list.push(p);
+    paymentsByRegistration.set(p.registration_id, list);
+  }
+
+  // Event "updates" / broadcasts (decision #87) - manual wa.me sending, same
+  // as Lead/Inquiry, with self-reported sent-tracking. A registrant's own
+  // location scoping already applies to `registrations` above (RLS), so a
+  // location_admin's broadcast panels automatically only ever show/track
+  // their own location's recipients, with no extra filtering needed here.
+  const [{ data: broadcasts }, { data: templates }] = await Promise.all([
+    supabase.from('event_broadcasts').select('id, label, message').eq('event_id', id).order('created_at', { ascending: false }),
+    supabase.from('message_templates').select('id, label, body').order('label'),
+  ]);
+  const broadcastIds = (broadcasts ?? []).map((b) => b.id);
+  const { data: broadcastSends } = broadcastIds.length
+    ? await supabase.from('event_broadcast_sends').select('broadcast_id, registration_id').in('broadcast_id', broadcastIds)
+    : { data: [] as { broadcast_id: string; registration_id: string }[] };
+  const sentSet = new Set((broadcastSends ?? []).map((s) => `${s.broadcast_id}:${s.registration_id}`));
+
   const boundUpdate = updateEvent.bind(null, id);
   const boundPermanentDelete = permanentlyDeleteEvent.bind(null, id);
   const boundCreateRegistration = createRegistration.bind(null, id);
@@ -79,7 +142,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     0
   );
   const totalFeeExpected = (registrations ?? []).reduce((sum, r) => sum + (r.fee_amount ?? 0), 0);
-  const totalCollected = (registrations ?? []).reduce((sum, r) => sum + r.amount_paid, 0);
+  const totalCollected = (eventPayments ?? []).reduce((sum, p) => sum + p.amount, 0);
 
   // By-location breakdown - super_admin only, since a location_admin's
   // registrations list is already RLS-filtered to their own location, so
@@ -91,10 +154,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   let unattributed = { headcount: 0, feeExpected: 0, collected: 0 };
   for (const r of registrations ?? []) {
     const names = attendeesByRegistration.get(r.id)?.length ?? 0;
+    const collected = (paymentsByRegistration.get(r.id) ?? []).reduce((sum, p) => sum + p.amount, 0);
     const entry = r.location_id ? (byLocation.get(r.location_id) ?? { headcount: 0, feeExpected: 0, collected: 0 }) : unattributed;
     entry.headcount += 1 + names;
     entry.feeExpected += r.fee_amount ?? 0;
-    entry.collected += r.amount_paid;
+    entry.collected += collected;
     if (r.location_id) byLocation.set(r.location_id, entry);
   }
 
@@ -123,6 +187,27 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <textarea name="description" defaultValue={event.description ?? ''} rows={2} className={`mt-1 w-full ${FIELD_CLASS}`} />
             </label>
             <label className="block text-sm">
+              Venue (optional - fills the {'{venue}'} placeholder in updates)
+              <input
+                name="venue"
+                defaultValue={event.venue ?? ''}
+                placeholder="e.g. Community Hall, Navrangpura"
+                className={`mt-1 w-full ${FIELD_CLASS}`}
+              />
+            </label>
+            <label className="block text-sm">
+              Fee per person (optional - auto-fills each new registration's total)
+              <input
+                name="fee_per_person"
+                type="number"
+                step="1"
+                min="0"
+                defaultValue={event.fee_per_person ?? ''}
+                placeholder="e.g. 200"
+                className={`mt-1 w-full ${FIELD_CLASS}`}
+              />
+            </label>
+            <label className="block text-sm">
               Poster banner image {event.banner_image_url ? '(replace)' : '(optional)'}
               {event.banner_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -132,11 +217,23 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                   className="mt-2 mb-2 h-24 w-24 rounded-full object-cover"
                 />
               ) : null}
-              <input name="banner_image" type="file" accept="image/*" className={`mt-1 block w-full ${FIELD_CLASS}`} />
+              <input
+                name="banner_image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className={`mt-1 block w-full ${FIELD_CLASS}`}
+              />
+              <span className="mt-1 block text-xs text-muted">
+                Square-ish photo works best (one upload is used for both a circular crop and a wide banner) - 1600×1600px or larger, JPG/PNG/WebP, under 5MB.
+              </span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="public_registration_enabled" defaultChecked={event.public_registration_enabled} />
               Allow public self-registration for this event
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="show_in_gallery" defaultChecked={event.show_in_gallery} />
+              Show this event in other events' "past events" gallery
             </label>
             <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Save
@@ -145,7 +242,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
           {event.public_registration_enabled ? (
             <p className="border-t border-border pt-3 text-sm">
-              Public link: <code>/events/{id}/register</code>
+              Public link:{' '}
+              <a href={shortLink} target="_blank" rel="noopener noreferrer" className="underline">
+                {shortLink}
+              </a>
             </p>
           ) : null}
 
@@ -222,9 +322,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </option>
             ))}
           </select>
-          <input name="fee_amount" type="number" step="0.01" placeholder="Fee (leave blank if free)" className={FIELD_CLASS} />
-          <input name="amount_paid" type="number" step="0.01" placeholder="Amount paid" defaultValue="0" className={FIELD_CLASS} />
-          <AttendeeRows key={registrations?.length ?? 0} fieldClass={FIELD_CLASS} />
+          <RegistrationFeeFields
+            key={registrations?.length ?? 0}
+            fieldClass={FIELD_CLASS}
+            feePerPerson={event.fee_per_person}
+          />
           <input name="remarks" placeholder="Remarks" className={`col-span-2 sm:col-span-3 ${FIELD_CLASS}`} />
           <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
             Add
@@ -264,12 +366,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                         registrant_phone: r.registrant_phone,
                         location_id: r.location_id,
                         fee_amount: r.fee_amount,
-                        amount_paid: r.amount_paid,
                         remarks: r.remarks,
                       }}
                       attendees={attendeesForRow}
                       locations={locations}
                       locationLabel={r.location_id ? (locationName.get(r.location_id) ?? '-') : 'Unattributed'}
+                      payments={paymentsByRegistration.get(r.id) ?? []}
+                      addPaymentAction={addEventPayment.bind(null, r.id, id)}
+                      removePaymentAction={permanentlyDeleteEventPayment.bind(null, id)}
                       updateAction={updateRegistration.bind(null, r.id, id)}
                       archiveAction={archiveRegistration.bind(null, r.id, id)}
                       removeAction={permanentlyDeleteRegistration.bind(null, r.id, id)}
@@ -280,6 +384,44 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </table>
           </div>
         )}
+      </section>
+
+      <section className="mt-6">
+        <h2 className="mb-3 text-sm font-semibold">Updates</h2>
+        <div className="space-y-3">
+          {(broadcasts ?? []).map((b) => {
+            const recipients = (registrations ?? []).map((r) => {
+              const filled = fillEventTemplate(b.message, {
+                name: r.registrant_name,
+                eventName: event.name,
+                eventDate: event.event_date ?? '',
+                venue: event.venue ?? '',
+              });
+              return {
+                registrationId: r.id,
+                name: r.registrant_name,
+                waLink: whatsappLink(r.registrant_phone, null, filled),
+                sent: sentSet.has(`${b.id}:${r.id}`),
+              };
+            });
+            return (
+              <BroadcastPanel
+                key={b.id}
+                label={b.label}
+                message={b.message}
+                recipients={recipients}
+                markSentAction={markBroadcastSent.bind(null, id, b.id)}
+                unmarkSentAction={unmarkBroadcastSent.bind(null, id, b.id)}
+                removeAction={permanentlyDeleteEventBroadcast.bind(null, id, b.id)}
+              />
+            );
+          })}
+
+          <div className="rounded-[var(--radius)] border border-border p-4">
+            <h3 className="mb-2 text-sm font-semibold">New update</h3>
+            <NewBroadcastForm templates={templates ?? []} createAction={createEventBroadcast.bind(null, id)} />
+          </div>
+        </div>
       </section>
     </AppShell>
   );

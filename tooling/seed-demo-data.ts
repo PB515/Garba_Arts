@@ -149,7 +149,13 @@ async function seed(): Promise<void> {
   for (const def of eventDefs) {
     const { data: event, error: eventErr } = await svc
       .from('events')
-      .insert({ name: def.name, event_date: def.event_date, description: def.description, created_by: seedUserId })
+      .insert({
+        name: def.name,
+        slug: `${def.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${Date.now()}`,
+        event_date: def.event_date,
+        description: def.description,
+        created_by: seedUserId,
+      })
       .select('id')
       .single();
 
@@ -160,16 +166,12 @@ async function seed(): Promise<void> {
     eventsCreated++;
 
     for (let i = 0; i < def.registrations; i++) {
-      const friendCount = Math.floor(Math.random() * 4);
-      const isPaid = Math.random() > 0.4;
       const feeAmount = Math.random() > 0.3 ? 0 : null; // most demo events are free
       const { error: regErr } = await svc.from('event_registrations').insert({
         event_id: event.id,
         registrant_name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
         registrant_phone: randomPhone(),
-        friend_count: friendCount,
         fee_amount: feeAmount === null ? null : feeAmount,
-        amount_paid: isPaid && feeAmount ? feeAmount : 0,
         remarks: DEMO_TAG,
         created_by: seedUserId,
       });

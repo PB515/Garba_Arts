@@ -44,7 +44,15 @@ export default async function EventsPage() {
             <input name="description" placeholder="Description" className={`col-span-2 ${FIELD_CLASS}`} />
             <label className="col-span-2 text-sm sm:col-span-4">
               Poster banner image (optional)
-              <input name="banner_image" type="file" accept="image/*" className={`mt-1 block w-full ${FIELD_CLASS}`} />
+              <input
+                name="banner_image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className={`mt-1 block w-full ${FIELD_CLASS}`}
+              />
+              <span className="mt-1 block text-xs text-muted">
+                Square-ish photo works best (one upload is used for both a circular crop and a wide banner) - 1600×1600px or larger, JPG/PNG/WebP, under 5MB.
+              </span>
             </label>
             <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Add

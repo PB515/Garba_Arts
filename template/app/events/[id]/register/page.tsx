@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { Fraunces, Karla, Space_Mono } from 'next/font/google';
 import { HONEYPOT_FIELD } from '@/lib/security';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
@@ -6,6 +7,36 @@ import { submitEventRegistration } from './actions';
 import { AttendeeRows } from '../../attendee-rows';
 import { SubmitButton } from '@/lib/patterns/submit-button';
 import './poster.css';
+
+/**
+ * Open Graph metadata (decision #89) - so sharing this link on WhatsApp/etc.
+ * shows a real preview instead of a bare URL. Uses the same banner image
+ * already uploaded for the poster itself (already an absolute Storage URL,
+ * so no extra work needed there) - only set when one actually exists, since
+ * there's no generic fallback image to show instead.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = createServiceRoleClient();
+  const { data: event } = await supabase
+    .from('events')
+    .select('name, description, banner_image_url')
+    .eq('id', id)
+    .maybeSingle();
+  if (!event) return {};
+
+  const title = `${event.name} · The Garba Arts`;
+  const description = event.description ?? 'Register for this event.';
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: event.banner_image_url ? [{ url: event.banner_image_url, width: 1200, height: 630 }] : undefined,
+    },
+  };
+}
 
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -119,7 +150,7 @@ export default async function EventRegisterPage({
               <input id="registrant_phone" name="registrant_phone" className="poster-input" />
             </label>
 
-            <AttendeeRows fieldClass="poster-input" />
+            <AttendeeRows fieldClass="poster-input" maxAttendees={10} />
 
             <label className="poster-field" htmlFor="remarks">
               Anything else? (optional)

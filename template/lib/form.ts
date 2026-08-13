@@ -85,6 +85,35 @@ export function fillTemplate(body: string, name: string): string {
   return body.replaceAll('{name}', name);
 }
 
+/**
+ * Substitutes {name}/{event_name}/{event_date}/{venue} in an event broadcast
+ * (0034/decision #87) - a superset of fillTemplate's single {name}
+ * placeholder, kept as its own function rather than widening fillTemplate's
+ * signature so Lead/Inquiry's existing calls (still just {name}) stay
+ * untouched. The event-level values (name/date/venue) are the same for
+ * every registrant of one broadcast; only `name` varies per row.
+ */
+export function fillEventTemplate(
+  body: string,
+  vars: { name: string; eventName: string; eventDate: string; venue: string },
+): string {
+  return body
+    .replaceAll('{name}', vars.name)
+    .replaceAll('{event_name}', vars.eventName)
+    .replaceAll('{event_date}', vars.eventDate)
+    .replaceAll('{venue}', vars.venue);
+}
+
+/** Kebab-cases an event name into a URL-safe base for the short /e/[slug] link (0032). Collision handling (an incrementing -2/-3 suffix) lives in events/actions.ts, next to the insert it protects. */
+export function slugify(name: string): string {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base || 'event';
+}
+
 export interface AttendeeInput {
   name: string;
   phone: string | null;

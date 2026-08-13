@@ -132,7 +132,11 @@ async function main(): Promise<void> {
   if (!superAdminUser) throw new Error('could not resolve the signed-in super_admin user');
   const { data: seededEvent, error: seedEventError } = await superAdmin
     .from('events')
-    .insert({ name: '[VERIFY] location-scoping test event', created_by: superAdminUser.id })
+    .insert({
+      name: '[VERIFY] location-scoping test event',
+      slug: `verify-location-denial-event-${Date.now()}`,
+      created_by: superAdminUser.id,
+    })
     .select('id')
     .single();
   if (!seededEvent) throw new Error(`could not seed a test event: ${seedEventError?.message}`);
@@ -207,7 +211,63 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log(c.dim('\nevent_payments (0033) inherit scoping from their parent registration too, same pattern as event_attendees...'));
+  const { data: paymentUnderAalayReg } = await superAdmin
+    .from('event_payments')
+    .insert({ registration_id: aalayReg.id, amount: 1, mode: 'cash', paid_date: '2026-01-01', created_by: superAdminUser.id })
+    .select('id')
+    .single();
+  if (paymentUnderAalayReg) {
+    const { data: aalaySeesPayment } = await aalay.from('event_payments').select('id').eq('id', paymentUnderAalayReg.id);
+    check('Aalay admin sees a payment under its own registration', (aalaySeesPayment?.length ?? 0) === 1);
+
+    const { data: sportsclubSeesPayment } = await sportsclub
+      .from('event_payments')
+      .select('id')
+      .eq('id', paymentUnderAalayReg.id);
+    check(
+      'Sportsclub admin sees 0 payments under an Aalay registration',
+      (sportsclubSeesPayment?.length ?? 0) === 0,
+      JSON.stringify(sportsclubSeesPayment)
+    );
+  }
+
+  console.log(c.dim('\nevent_broadcast_sends (0034) inherit scoping from their parent registration too...'));
+  const { data: seededBroadcast } = await superAdmin
+    .from('event_broadcasts')
+    .insert({ event_id: seededEvent.id, label: '[VERIFY] broadcast', message: 'hi {name}', created_by: superAdminUser.id })
+    .select('id')
+    .single();
+  let sendUnderAalayReg: { id: string } | null | undefined;
+  if (seededBroadcast) {
+    const { data } = await superAdmin
+      .from('event_broadcast_sends')
+      .insert({ broadcast_id: seededBroadcast.id, registration_id: aalayReg.id, sent_by: superAdminUser.id })
+      .select('id')
+      .single();
+    sendUnderAalayReg = data;
+  }
+  if (sendUnderAalayReg) {
+    const { data: aalaySeesSend } = await aalay.from('event_broadcast_sends').select('id').eq('id', sendUnderAalayReg.id);
+    check('Aalay admin sees a broadcast-send under its own registration', (aalaySeesSend?.length ?? 0) === 1);
+
+    const { data: sportsclubSeesSend } = await sportsclub
+      .from('event_broadcast_sends')
+      .select('id')
+      .eq('id', sendUnderAalayReg.id);
+    check(
+      'Sportsclub admin sees 0 broadcast-sends under an Aalay registration',
+      (sportsclubSeesSend?.length ?? 0) === 0,
+      JSON.stringify(sportsclubSeesSend)
+    );
+  }
+
   console.log(c.dim('\ncleaning up seeded event-registration rows via super_admin...'));
+  if (seededBroadcast) {
+    await superAdmin.from('event_broadcast_sends').delete().eq('broadcast_id', seededBroadcast.id);
+    await superAdmin.from('event_broadcasts').delete().eq('id', seededBroadcast.id);
+  }
+  await superAdmin.from('event_payments').delete().eq('registration_id', aalayReg.id);
   await superAdmin.from('event_attendees').delete().eq('registration_id', aalayReg.id);
   await superAdmin.from('event_registrations').delete().eq('event_id', seededEvent.id);
   await superAdmin.from('events').delete().eq('id', seededEvent.id);
