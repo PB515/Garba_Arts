@@ -310,27 +310,32 @@
    A pure CSS Grid reflow, deliberately not a JSX restructure - the six
    elements below stay exactly where they are in the markup (so the mobile
    flex-column order above is completely untouched), grid-template-areas
-   just remaps them into two columns at this width. */
+   just remaps them into two columns at this width.
+
+   Bug found live on a real wide desktop screen (decision #91): the first
+   version centered the content via `max-width: 72rem; margin: 0 auto` on
+   `.poster` itself - but `.poster` is also what carries the dark --night
+   background, so that background shrank to the same 72rem box, leaving a
+   stark plain-white gutter on both sides at genuinely wide viewports
+   instead of the indigo extending edge-to-edge. Fixed by keeping `.poster`
+   full-width (background stays edge-to-edge, always) and centering the
+   content with flexible empty gutter *columns* in the grid instead. */
 @media (min-width: 1024px) {
   .poster {
     display: grid;
-    grid-template-columns: minmax(260px, 340px) 1fr;
+    grid-template-columns: minmax(1.5rem, 1fr) minmax(260px, 340px) minmax(0, 30rem) minmax(1.5rem, 1fr);
     grid-template-areas:
-      "portrait eyebrow"
-      "portrait title"
-      "portrait ticket"
-      "portrait description"
-      "portrait card"
-      "portrait ."
-      "portrait .";
+      ".      portrait eyebrow     ."
+      ".      portrait title       ."
+      ".      portrait ticket      ."
+      ".      portrait description ."
+      ".      portrait card        ."
+      ".      portrait .           ."
+      ".      portrait .           .";
     align-content: center;
     align-items: start;
     row-gap: 0.85rem;
-    column-gap: 4rem;
-    max-width: 72rem;
-    width: 100%;
-    margin: 0 auto;
-    padding: 5rem 3rem;
+    padding: 5rem 0;
   }
   .poster-portrait {
     grid-area: portrait;
@@ -338,7 +343,7 @@
     height: 320px;
     align-self: center;
     justify-self: center;
-    margin: 0;
+    margin: 0 3rem 0 0;
   }
   .poster-eyebrow {
     grid-area: eyebrow;
