@@ -42,6 +42,10 @@ export default async function EventsPage() {
             <input name="name" placeholder="Event name" required className={FIELD_CLASS} />
             <input name="event_date" type="date" className={FIELD_CLASS} />
             <input name="description" placeholder="Description" className={`col-span-2 ${FIELD_CLASS}`} />
+            <label className="col-span-2 text-sm sm:col-span-4">
+              Poster banner image (optional)
+              <input name="banner_image" type="file" accept="image/*" className={`mt-1 block w-full ${FIELD_CLASS}`} />
+            </label>
             <SubmitButton className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-foreground">
               Add
             </SubmitButton>

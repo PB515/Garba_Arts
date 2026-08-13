@@ -63,7 +63,7 @@ export function AttendeeRows({
       {rows.length > 0 ? (
         <div className="space-y-2">
           {rows.map((row, i) => (
-            <div key={i} className="grid grid-cols-3 gap-2">
+            <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <input
                 name={`attendee_name_${i}`}
                 placeholder="Name"

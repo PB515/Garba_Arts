@@ -4,6 +4,25 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
 import { requireUser, str, num, parseAttendeeRows } from '@/lib/form';
+import type { createClient } from '@/lib/supabase/server';
+
+/**
+ * Uploads an event's poster banner to the public `event-banners` bucket
+ * (0031) and returns its public URL. Only called when a real file was
+ * actually chosen (decision #83) - the upload input is optional, so an
+ * empty file selection is silently skipped rather than erroring.
+ */
+async function uploadEventBanner(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  file: File,
+): Promise<string> {
+  const path = `${eventId}/${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage.from('event-banners').upload(path, file, { upsert: true });
+  if (error) throw new Error(`Could not upload banner image: ${error.message}`);
+  const { data } = supabase.storage.from('event-banners').getPublicUrl(path);
+  return data.publicUrl;
+}
 
 export async function createEvent(formData: FormData): Promise<void> {
   const { supabase, user } = await requireUser();
@@ -24,6 +43,12 @@ export async function createEvent(formData: FormData): Promise<void> {
 
   if (error) throw new Error(`Could not add event: ${error.message}`);
 
+  const bannerFile = formData.get('banner_image');
+  if (bannerFile instanceof File && bannerFile.size > 0) {
+    const banner_image_url = await uploadEventBanner(supabase, data.id, bannerFile);
+    await supabase.from('events').update({ banner_image_url }).eq('id', data.id);
+  }
+
   revalidatePath('/events');
   redirect(`/events/${data.id}`);
 }
@@ -34,6 +59,16 @@ export async function updateEvent(eventId: string, formData: FormData): Promise<
   const name = str(formData, 'name');
   if (!name) throw new Error('Event name is required.');
 
+  const bannerFile = formData.get('banner_image');
+  let banner_image_url: string | undefined;
+  if (bannerFile instanceof File && bannerFile.size > 0) {
+    banner_image_url = await uploadEventBanner(supabase, eventId, bannerFile);
+    // Replacing a banner shouldn't leave the old file orphaned in Storage.
+    const { data: current } = await supabase.from('events').select('banner_image_url').eq('id', eventId).single();
+    const oldPath = current?.banner_image_url?.split('/event-banners/')[1];
+    if (oldPath) await supabase.storage.from('event-banners').remove([oldPath]);
+  }
+
   const { error } = await supabase
     .from('events')
     .update({
@@ -41,6 +76,7 @@ export async function updateEvent(eventId: string, formData: FormData): Promise<
       event_date: str(formData, 'event_date'),
       description: str(formData, 'description'),
       public_registration_enabled: formData.get('public_registration_enabled') === 'on',
+      ...(banner_image_url ? { banner_image_url } : {}),
     })
     .eq('id', eventId);
 
@@ -76,6 +112,13 @@ export async function permanentlyDeleteEvent(eventId: string): Promise<void> {
 
   const { error } = await supabase.from('events').delete().eq('id', eventId);
   if (error) throw new Error(`Could not permanently remove event: ${error.message}`);
+
+  // The banner lives in Storage, not the events row - deleting the row
+  // alone would leave it orphaned there forever.
+  if (existing?.banner_image_url) {
+    const path = existing.banner_image_url.split('/event-banners/')[1];
+    if (path) await supabase.storage.from('event-banners').remove([path]);
+  }
 
   await writeAuditLog(supabase, {
     actorId: user.id,

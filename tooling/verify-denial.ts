@@ -167,6 +167,21 @@ async function main(): Promise<void> {
   const templateInsert = await anon.from('message_templates').insert({ label: 'anon-should-fail', body: 'x' });
   check('insert is rejected', templateInsert.error !== null, 'insert succeeded — RLS hole');
 
+  console.log('event-banners storage bucket (0031 - deliberately public-read, since the poster page has no session; write stays staff-only):');
+  const bannerBlob = new Blob(['verify-denial'], { type: 'text/plain' });
+  const bannerPath = 'verify-denial/test.txt';
+  const { error: bannerSeedErr } = await svc.storage.from('event-banners').upload(bannerPath, bannerBlob, { upsert: true });
+  if (bannerSeedErr) throw new Error(`seed event-banners object failed: ${bannerSeedErr.message}`);
+  const anonBannerDownload = await anon.storage.from('event-banners').download(bannerPath);
+  check(
+    'anon CAN read (public bucket, by design - the poster page has no session)',
+    anonBannerDownload.error === null,
+    anonBannerDownload.error?.message
+  );
+  const anonBannerUpload = await anon.storage.from('event-banners').upload('verify-denial/anon-should-fail.txt', bannerBlob);
+  check('anon upload is rejected', anonBannerUpload.error !== null, 'upload succeeded — storage RLS hole');
+  await svc.storage.from('event-banners').remove([bannerPath]);
+
   console.log('locations:');
   const locSelect = await anon.from('locations').select('*').eq('id', loc.id);
   check('select returns no rows', (locSelect.data?.length ?? 0) === 0, JSON.stringify(locSelect.data));

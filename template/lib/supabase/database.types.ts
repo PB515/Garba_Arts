@@ -230,6 +230,7 @@ export type Database = {
       }
       events: {
         Row: {
+          banner_image_url: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -239,6 +240,7 @@ export type Database = {
           public_registration_enabled: boolean
         }
         Insert: {
+          banner_image_url?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -248,6 +250,7 @@ export type Database = {
           public_registration_enabled?: boolean
         }
         Update: {
+          banner_image_url?: string | null
           created_at?: string
           created_by?: string
           description?: string | null

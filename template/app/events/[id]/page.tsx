@@ -122,6 +122,18 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               Description
               <textarea name="description" defaultValue={event.description ?? ''} rows={2} className={`mt-1 w-full ${FIELD_CLASS}`} />
             </label>
+            <label className="block text-sm">
+              Poster banner image {event.banner_image_url ? '(replace)' : '(optional)'}
+              {event.banner_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={event.banner_image_url}
+                  alt=""
+                  className="mt-2 mb-2 h-24 w-24 rounded-full object-cover"
+                />
+              ) : null}
+              <input name="banner_image" type="file" accept="image/*" className={`mt-1 block w-full ${FIELD_CLASS}`} />
+            </label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="public_registration_enabled" defaultChecked={event.public_registration_enabled} />
               Allow public self-registration for this event
